@@ -214,6 +214,7 @@ fn parse_msg_fields(msg_jsonval : &jsonrpsee::common::JsonValue) -> (u64,String,
 // to provide a tuple of {msg_cid, (message, receipt)}
 fn iterate_parents_of_block(block_cid: &str, 
     msg_type_by_cid: &mut HashMap<String, MessageTypeFlag>, 
+    msgs: &mut HashMap<String, Message>, 
     on_each_msgcid_msg_receipt_tuple: fn( msg_cid: &str,  msg: &Message) )
 {
     let parent_msgs_jsonval : jsonrpsee::common::JsonValue = api::chain_get_parent_messages(block_cid);
@@ -310,6 +311,7 @@ fn iterate_parents_of_block(block_cid: &str,
 
         on_each_msgcid_msg_receipt_tuple(&cid_str, &msg);
         //println!("msg: {:?}",msg);
+        msgs.insert(cid_str,msg);
 
         i += 1;
     } // loop
@@ -461,17 +463,23 @@ fn main() {
     //println!("current tipset height: {}",curr_tipset_height);
 
     //
+    // In-memory store
+    //
+    let mut msgs = HashMap::new();
+    let mut msg_type_by_cid = HashMap::new();
+
+    //
     // Iterate over the range of heights
     //
     use std::cmp::{min,max};
-    let i : u64 = max(min_height,0 as u64);
+    let mut i : u64 = max(min_height,0 as u64);
     println!("Iterating from height {} to {}",i,min(max_height,curr_tipset_height));
     loop {
         if i > min(max_height,get_current_tipset_height()) {
             break
         }
 
-        for blk_cid in get_tipset_by_height(curr_tipset_height) {
+        for blk_cid in get_tipset_by_height(i) {
             println!("Height {} : blk_cid {}...",i,blk_cid);
             // For teting
             // blk_cid = "bafy2bzacedtdy7sawc42n2yraczgpvqxf6saejzrz4hvp25k5hytwmcky7cq4"
@@ -479,21 +487,17 @@ fn main() {
             //
             // First store up current block's messages (which do not have receipts yet) in msg_type_by_cid 
             //
-            let mut msg_type_by_cid = HashMap::new();
-            // Following line is just to prove that the msg_type_by_cid lookup works.  
-            // This '...qft4oq' message will get marked as Secp/"LTHR..."
-            //msg_type_by_cid.insert("bafy2bzaceaxs2z3magetillfg76ftf54h6uqpukpkavfzyhnqb7erowqft4oq".to_string(), MessageTypeFlag::SecpMessage(SecpkSignature::new(1, "LTHRT98CoG7Dyt9aec3uhFWufuxj8M3RZVvaNPLaUmBgAmwDfOhfD0jM0y/uthXPjEnY+iz2uysRIu5URQSOVgA=")));
-            iterate_messages_for_block(&blk_cid, &mut msg_type_by_cid, 
+            iterate_messages_for_block(&blk_cid, &mut msg_type_by_cid,
                 |msg_cid, msg_type_flag| {
-                    //println!("<{}> is type {:?}\n",msg_cid,msg_type_flag);
+                    println!("block messages:  {} : {:?}\n",msg_cid,msg_type_flag);
             });
 
             // 
             // Then gather up parents with their corresponding receipts for long-term storage in index
             // 
-            iterate_parents_of_block(&blk_cid, &mut msg_type_by_cid, 
+            iterate_parents_of_block(&blk_cid, &mut msg_type_by_cid, &mut msgs,
                 |msg_cid, msg| {
-                    //println!("<{}>\nmsg: {:?}\n",msg_cid,msg);
+                    println!("parent messages:  {} : {:?}\n",msg_cid,msg);
 
                     // Check the msg_cid and msg struct for well-formedness.
                     // Save this msg_cid,msg,receipt tuple into index db if good.
@@ -503,6 +507,11 @@ fn main() {
                     // TODO...
             });
         }
+
+        println!(">> {}       msgs.len",msgs.len());
+        println!(">> {}       msg_type_by_cid.len",msg_type_by_cid.len());
+
+        i += 1;
     }
 
 
