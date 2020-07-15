@@ -35,6 +35,7 @@ macro_rules! make_api_function {
     }
 }
 
+//
 // Example of using make_api_function:
 //
 // pub fn chain_get_tipset_by_height(height: u64) -> jsonrpsee::common::JsonValue {
@@ -46,6 +47,7 @@ macro_rules! make_api_function {
 //         params
 //     })
 // }
+//
 
 
 //////////////////////////////////////////////////////////////////////////////////////
@@ -60,23 +62,15 @@ macro_rules! make_api_function {
 //      "params":[33,[]], "id": 0 }' 'http://lotus1:1234/rpc/v0'
 // (yes, the empty array is an essential parameter; it indicates 'types.EmptyTSK')
 pub fn chain_get_tipset_by_height(height: u64) -> jsonrpsee::common::JsonValue {
-    async_std::task::block_on(async move {
-        let transport =
-            jsonrpsee::transport::http::HttpTransportClient::new(API_SERVER_IP_PORT,"");
-        let mut raw_client = jsonrpsee::raw::RawClient::new(transport);
-        
+    make_api_function!("Filecoin.ChainGetTipSetByHeight","",{
         let mut v_params : Vec<jsonrpsee::common::JsonValue> = vec!();
         v_params.push(json!(height));
         v_params.push(jsonrpsee::common::JsonValue::Array(vec!()));
         let params = jsonrpsee::common::Params::Array(v_params);
-        let request_id = raw_client.start_request("Filecoin.ChainGetTipSetByHeight", 
-            params).await.unwrap();  // TODO:  remove unwrap() -> handle error properly
-        jsonrpsee::common::from_value(
-            raw_client.request_by_id(request_id).unwrap().await.unwrap() // TODO:  remove unwrap() -> handle error properly
-        )
-        .unwrap()  // TODO:  remove unwrap() -> handle error properly
+        params
     })
 }
+
 
 //////////////////////////////////////////////////////////////////////////////////////
 //
@@ -89,17 +83,8 @@ pub fn chain_get_tipset_by_height(height: u64) -> jsonrpsee::common::JsonValue {
 //      '{ "jsonrpc": "2.0", "method": "Filecoin.ChainHead", "params": null, "id": 0 }' 
 //      'http://devnet1:1234/rpc/v0'
 pub fn chain_head() -> jsonrpsee::common::JsonValue {
-    async_std::task::block_on(async move {
-        let transport =
-            jsonrpsee::transport::http::HttpTransportClient::new(API_SERVER_IP_PORT,"");
-        let mut raw_client = jsonrpsee::raw::RawClient::new(transport);
-        
-        let request_id = raw_client.start_request("Filecoin.ChainHead", 
-            jsonrpsee::common::Params::None).await.unwrap();  // TODO:  remove unwrap() -> handle error properly
-        jsonrpsee::common::from_value(
-            raw_client.request_by_id(request_id).unwrap().await.unwrap()  // TODO:  remove unwrap() -> handle error properly
-        )
-        .unwrap()  // TODO:  remove unwrap() -> handle error properly
+    make_api_function!("Filecoin.ChainHead","",{
+        jsonrpsee::common::Params::None
     })
 }
 
@@ -179,20 +164,11 @@ pub fn chain_head() -> jsonrpsee::common::JsonValue {
 // Notes:
 // - These are just the block headers and don't contain any of the cids or cid data.
 pub fn chain_get_block(block_cid: &str) -> jsonrpsee::common::JsonValue {
-    async_std::task::block_on(async move {
-        let transport =
-            jsonrpsee::transport::http::HttpTransportClient::new(API_SERVER_IP_PORT,"");
-        let mut raw_client = jsonrpsee::raw::RawClient::new(transport);
-        
+    make_api_function!("Filecoin.ChainGetBlock","",{
         let mut v_params : Vec<jsonrpsee::common::JsonValue> = vec!();
         v_params.push(json!({"/":block_cid}));
         let params = jsonrpsee::common::Params::Array(v_params);
-        let request_id = raw_client.start_request("Filecoin.ChainGetBlock", 
-            params).await.unwrap();  // TODO:  remove unwrap() -> handle error properly
-        jsonrpsee::common::from_value(
-            raw_client.request_by_id(request_id).unwrap().await.unwrap()  // TODO:  remove unwrap() -> handle error properly
-        )
-        .unwrap()  // TODO:  remove unwrap() -> handle error properly
+        params
     })
 }
 
@@ -262,20 +238,11 @@ pub fn chain_get_block(block_cid: &str) -> jsonrpsee::common::JsonValue {
 // 1st Secp message, 2nd secp message, ..., last secp message
 // 
 pub fn chain_get_block_messages(block_cid: &str) -> jsonrpsee::common::JsonValue {
-    async_std::task::block_on(async move {
-        let transport =
-            jsonrpsee::transport::http::HttpTransportClient::new(API_SERVER_IP_PORT,"");
-        let mut raw_client = jsonrpsee::raw::RawClient::new(transport);
-        
+    make_api_function!("Filecoin.ChainGetBlockMessages","",{
         let mut v_params : Vec<jsonrpsee::common::JsonValue> = vec!();
         v_params.push(json!({"/":block_cid}));
         let params = jsonrpsee::common::Params::Array(v_params);
-        let request_id = raw_client.start_request("Filecoin.ChainGetBlockMessages", 
-            params).await.unwrap();  // TODO:  remove unwrap() -> handle error properly
-        jsonrpsee::common::from_value(
-            raw_client.request_by_id(request_id).unwrap().await.unwrap()  // TODO:  remove unwrap() -> handle error properly
-        )
-        .unwrap()  // TODO:  remove unwrap() -> handle error properly
+        params
     })
 }
 
@@ -318,20 +285,11 @@ pub fn chain_get_block_messages(block_cid: &str) -> jsonrpsee::common::JsonValue
 // where:
 // - There can be any number of Cid,Message pair blocks like above.
 pub fn chain_get_parent_messages(block_cid: &str) -> jsonrpsee::common::JsonValue {
-    async_std::task::block_on(async move {
-        let transport =
-            jsonrpsee::transport::http::HttpTransportClient::new(API_SERVER_IP_PORT,"");
-        let mut raw_client = jsonrpsee::raw::RawClient::new(transport);
-        
+    make_api_function!("Filecoin.ChainGetParentMessages","",{
         let mut v_params : Vec<jsonrpsee::common::JsonValue> = vec!();
         v_params.push(json!({"/":block_cid}));
         let params = jsonrpsee::common::Params::Array(v_params);
-        let request_id = raw_client.start_request("Filecoin.ChainGetParentMessages", 
-            params).await.unwrap();  // TODO:  remove unwrap() -> handle error properly
-        jsonrpsee::common::from_value(
-            raw_client.request_by_id(request_id).unwrap().await.unwrap()  // TODO:  remove unwrap() -> handle error properly
-        )
-        .unwrap()  // TODO:  remove unwrap() -> handle error properly
+        params
     })
 }
 
@@ -371,20 +329,11 @@ pub fn chain_get_parent_messages(block_cid: &str) -> jsonrpsee::common::JsonValu
 // the response to Filecoin.ChainGetParentMessages.
 //
 pub fn chain_get_parent_receipts(block_cid: &str) -> jsonrpsee::common::JsonValue {
-    async_std::task::block_on(async move {
-        let transport =
-            jsonrpsee::transport::http::HttpTransportClient::new(API_SERVER_IP_PORT,"");
-        let mut raw_client = jsonrpsee::raw::RawClient::new(transport);
-        
+    make_api_function!("Filecoin.ChainGetParentReceipts","",{
         let mut v_params : Vec<jsonrpsee::common::JsonValue> = vec!();
         v_params.push(json!({"/":block_cid}));
         let params = jsonrpsee::common::Params::Array(v_params);
-        let request_id = raw_client.start_request("Filecoin.ChainGetParentReceipts", 
-            params).await.unwrap();  // TODO:  remove unwrap() -> handle error properly
-        jsonrpsee::common::from_value(
-            raw_client.request_by_id(request_id).unwrap().await.unwrap()  // TODO:  remove unwrap() -> handle error properly
-        )
-        .unwrap()  // TODO:  remove unwrap() -> handle error properly
+        params
     })
 }
 
