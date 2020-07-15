@@ -434,11 +434,43 @@ fn iterate_messages_for_block(block_cid: &str,
 }
 
 fn main() {
+    //
+    // Command line args:  --min=N and --max=N are bounds on the range of tip set heights to index
+    //
+    let min_cli_arg = "--min=";
+    let max_cli_arg = "--max=";
+    let mut min_height : u64 = 0;
+    let mut max_height : u64 = 999999999; // an impossibly large height that will get trimmed by max TSH
+
+    let args : Vec<String> = std::env::args().collect();
+    for mut argv in args {
+        if argv.starts_with(min_cli_arg) {
+            argv = argv[min_cli_arg.len()..].to_string();
+            if let Ok(n) = argv.parse::<u64>() {
+                min_height = n;
+            } 
+        } else if argv.starts_with(max_cli_arg) {
+            argv = argv[max_cli_arg.len()..].to_string();
+            if let Ok(n) = argv.parse::<u64>() {
+                max_height = n;
+            } 
+        }
+    }
+
     let curr_tipset_height = get_current_tipset_height();
     //println!("current tipset height: {}",curr_tipset_height);
 
-    let i : u64 = 0;
-    for i in 1..curr_tipset_height {
+    //
+    // Iterate over the range of heights
+    //
+    use std::cmp::{min,max};
+    let i : u64 = max(min_height,0 as u64);
+    println!("Iterating from height {} to {}",i,min(max_height,curr_tipset_height));
+    loop {
+        if i > min(max_height,get_current_tipset_height()) {
+            break
+        }
+
         for blk_cid in get_tipset_by_height(curr_tipset_height) {
             println!("Height {} : blk_cid {}...",i,blk_cid);
             // For teting
@@ -456,14 +488,18 @@ fn main() {
                     //println!("<{}> is type {:?}\n",msg_cid,msg_type_flag);
             });
 
-            //
+            // 
             // Then gather up parents with their corresponding receipts for long-term storage in index
             // 
             iterate_parents_of_block(&blk_cid, &mut msg_type_by_cid, 
                 |msg_cid, msg| {
                     //println!("<{}>\nmsg: {:?}\n",msg_cid,msg);
 
-                    // save this msg_cid,msg,receipt tuple into index database
+                    // Check the msg_cid and msg struct for well-formedness.
+                    // Save this msg_cid,msg,receipt tuple into index db if good.
+                    // If problems, save this msg_cid to a list of problem cids
+                    // to re-retrieve another time.
+                    //
                     // TODO...
             });
         }
@@ -474,13 +510,11 @@ fn main() {
     //
     // 0.  In the interest of making progress, trap Ctrl+C and persist to disk the largest fully completed
     //     tipset height so that we can pick up at that height+1 next time we start.
-    // 1.5. For any block_cid that we fail on, note it in a failed blocks list and just continue on with the
+    // 2. For any block_cid that we fail on, note it in a failed blocks list and just continue on with the
     //     next block.
     // 1.  Add a callback to check whether a given msg_cid is already in our index.
-    //     Can use this to make index updates faster since; don't even try to store msg_cids if
+    //     Can use this to make index updates faster since don't even try to store msg_cids if
     //     already in db.
-    // 2.  This program should be able to start up with a list of blocks and/or a height
-    //     that does not need to be traversed again.
     // 3.  On shutdown, persist the list of msg_id=>msg_type_flag without receipts yet, so we
     //     can resume with it next time.
     // 4.  Support a mode where we are running backward in time from current max height, to curr max -1, 
