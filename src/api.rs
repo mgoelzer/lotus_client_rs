@@ -15,6 +15,45 @@ jsonrpsee::rpc_api! {
     }
 }
 
+//////////////////////////////////////////////////////////////////////////////////////
+//
+// make_api_function macro to reduce boilerplate code identical in all api::* methods
+//
+//////////////////////////////////////////////////////////////////////////////////////
+
+macro_rules! make_api_function {
+    ($method_call_name:literal, $auth_token_value:expr, $expr_evals_to_params:expr) => {
+        async_std::task::block_on(async move {
+            let transport = jsonrpsee::transport::http::HttpTransportClient::new(API_SERVER_IP_PORT, $auth_token_value);
+            let mut raw_client = jsonrpsee::raw::RawClient::new(transport);
+            let request_id = raw_client.start_request($method_call_name, $expr_evals_to_params).await.unwrap();
+            jsonrpsee::common::from_value(
+                raw_client.request_by_id(request_id).unwrap().await.unwrap() 
+            )
+            .unwrap() 
+        })
+    }
+}
+
+// Example of using make_api_function:
+//
+// pub fn chain_get_tipset_by_height(height: u64) -> jsonrpsee::common::JsonValue {
+//     make_api_function!("Filecoin.ChainGetTipSetByHeight","",{
+//         let mut v_params : Vec<jsonrpsee::common::JsonValue> = vec!();
+//         v_params.push(json!(height));
+//         v_params.push(jsonrpsee::common::JsonValue::Array(vec!()));
+//         let params = jsonrpsee::common::Params::Array(v_params);
+//         params
+//     })
+// }
+
+
+//////////////////////////////////////////////////////////////////////////////////////
+//
+// chain_get_tipset_by_height
+//
+//////////////////////////////////////////////////////////////////////////////////////
+
 // equivalent to (for height=33):  `lotus chain list --height 33 --count 1` returning only the CIDs
 // equivalentn curl (for height=33):  curl -X POST -H "Content-Type: application/json" 
 //      --data '{ "jsonrpc": "2.0", "method": "Filecoin.ChainGetTipSetByHeight", 
@@ -39,6 +78,12 @@ pub fn chain_get_tipset_by_height(height: u64) -> jsonrpsee::common::JsonValue {
     })
 }
 
+//////////////////////////////////////////////////////////////////////////////////////
+//
+// chain_head
+//
+//////////////////////////////////////////////////////////////////////////////////////
+
 // equivalent to `lotus chain head`
 // equivalentn curl:  curl -X POST -H "Content-Type: application/json" --data 
 //      '{ "jsonrpc": "2.0", "method": "Filecoin.ChainHead", "params": null, "id": 0 }' 
@@ -57,6 +102,14 @@ pub fn chain_head() -> jsonrpsee::common::JsonValue {
         .unwrap()  // TODO:  remove unwrap() -> handle error properly
     })
 }
+
+
+//////////////////////////////////////////////////////////////////////////////////////
+//
+// chain_get_block
+//
+//////////////////////////////////////////////////////////////////////////////////////
+
 
 // equivalent curl:  curl -X POST -H "Content-Type: application/json"  \
 //     --data '{ "jsonrpc": "2.0", "method": "Filecoin.ChainGetBlock", 
@@ -143,6 +196,13 @@ pub fn chain_get_block(block_cid: &str) -> jsonrpsee::common::JsonValue {
     })
 }
 
+
+//////////////////////////////////////////////////////////////////////////////////////
+//
+// chain_get_block_messages
+//
+//////////////////////////////////////////////////////////////////////////////////////
+
 // equivalent curl:  curl -X POST -H "Content-Type: application/json" 
 //      --data '{ "jsonrpc": "2.0", "method": "Filecoin.ChainGetBlockMessages", 
 //      "params":[{"/":"bafy2bzacebtfstfnqx7sc6phjxbdzin6vm4gvel5vcnnoqm6eegum3cj5bdra"}], 
@@ -219,6 +279,13 @@ pub fn chain_get_block_messages(block_cid: &str) -> jsonrpsee::common::JsonValue
     })
 }
 
+
+//////////////////////////////////////////////////////////////////////////////////////
+//
+// chain_get_parent_messages
+//
+//////////////////////////////////////////////////////////////////////////////////////
+
 // equivalent curl:  curl -X POST -H "Content-Type: application/json" --data 
 //      '{ "jsonrpc": "2.0", "method": "Filecoin.ChainGetParentMessages", 
 //      "params":[{"/":"bafy2bzacebc65yakb26o5f5jsscn2mkhxvkafocqho2wghg7m7hqlntk5iwwe"}], 
@@ -267,6 +334,13 @@ pub fn chain_get_parent_messages(block_cid: &str) -> jsonrpsee::common::JsonValu
         .unwrap()  // TODO:  remove unwrap() -> handle error properly
     })
 }
+
+
+//////////////////////////////////////////////////////////////////////////////////////
+//
+// chain_get_parent_receipts
+//
+//////////////////////////////////////////////////////////////////////////////////////
 
 // equivalent curl:  curl -X POST -H "Content-Type: application/json" --data 
 //      '{ "jsonrpc": "2.0", "method": "Filecoin.ChainGetParentReceipts", 
