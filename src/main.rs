@@ -48,7 +48,7 @@ struct ReceiptFields {
 #[derive(Debug, Clone)]
 enum ReceiptStatus {
     Receipt(ReceiptFields),
-    NoReceipt,
+    #[allow(dead_code)] NoReceipt,
 }
 
 #[derive(Debug, Clone)]
@@ -112,33 +112,32 @@ fn get_current_tipset_height() -> u64 {
 }
 
 fn parse_receipt_fields(receipt_jsonval: &jsonrpsee::common::JsonValue) -> (i64,String,u64) {
-        let receipt_exit_code: i64;
-        let mut receipt_return: String;
-        let receipt_gas_used: u64;
-        if let Some(exitcode_jsonval) = receipt_jsonval.pointer("/ExitCode") {
-            receipt_exit_code = match exitcode_jsonval.as_i64() {
-                Some(exit_code) => { exit_code },
-                None => { -1 },
+        let mut receipt_exit_code: i64 = -1;
+        let mut receipt_return: String = "".to_string();
+        let mut receipt_gas_used: u64 = 0;
+
+        let json_path = format!("/ExitCode");
+        if let Some(exitcode_jsonval) = receipt_jsonval.pointer(&json_path) {
+            if let Some(exitcode_i64) = exitcode_jsonval.as_i64() {
+                receipt_exit_code = exitcode_i64;
             }
-        } else {
-            receipt_exit_code = -1;
         }
-        if let Some(return_jsonval) = receipt_jsonval.pointer("/Return") {
+
+        let json_path = format!("/Return");
+        if let Some(return_jsonval) = receipt_jsonval.pointer(&json_path) {
             receipt_return = return_jsonval.to_string();
             if receipt_return.len()>2 {
                 receipt_return = receipt_return[1..receipt_return.len()-1].to_string();
             }
-        } else {
-            receipt_return = "".to_string();
         }
-        if let Some(receipt_gas_used_jsonval) = receipt_jsonval.pointer("/GasUsed") {
-            receipt_gas_used = match receipt_gas_used_jsonval.as_u64() {
-                Some(gas_used) => { gas_used },
-                None => { 0 },
+
+        let json_path = format!("/GasUsed");
+        if let Some(receipt_gas_used_jsonval) = receipt_jsonval.pointer(&json_path) {
+            if let Some(gas_used_u64) = receipt_gas_used_jsonval.as_u64() {
+                receipt_gas_used = gas_used_u64;
             }
-        } else {
-            receipt_gas_used = 0;
         }
+
         (receipt_exit_code,receipt_return,receipt_gas_used)
 }
 
@@ -152,55 +151,73 @@ fn parse_msg_fields(msg_jsonval : &jsonrpsee::common::JsonValue) -> (u64,String,
     let mut gas_limit_u64 : u64 = 0;
     let mut method_str : String = "0".to_string();
     let mut params_str : String = "".to_string();
-    if let Some(version_jsonval) = msg_jsonval.pointer("/Version") {
+
+    let json_path = format!("/Version");
+    if let Some(version_jsonval) = msg_jsonval.pointer(&json_path) {
         version_u64 = match version_jsonval.as_u64() {
             Some(n) => { n },
             None => { 0 },
         }
     }
-    if let Some(to_jsonval) = msg_jsonval.pointer("/To") {
+
+    let json_path = format!("/To");
+    if let Some(to_jsonval) = msg_jsonval.pointer(&json_path) {
         to_str = to_jsonval.to_string();
         if to_str.len()>2 {
             to_str = to_str[1..to_str.len()-1].to_string();
         }
     }
-    if let Some(from_jsonval) = msg_jsonval.pointer("/From") {
+
+    let json_path = format!("/From");
+    if let Some(from_jsonval) = msg_jsonval.pointer(&json_path) {
         from_str = from_jsonval.to_string();
         if from_str.len()>2 {
             from_str = from_str[1..from_str.len()-1].to_string();
         }
     }
-    if let Some(nonce_jsonval) = msg_jsonval.pointer("/Nonce") {
+
+    let json_path = format!("/Nonce");
+    if let Some(nonce_jsonval) = msg_jsonval.pointer(&json_path) {
         nonce_u64 = match nonce_jsonval.as_u64() {
             Some(n) => { n },
             None => { 0 },
         }
     }
-    if let Some(value_jsonval) = msg_jsonval.pointer("/Value") {
+
+    let json_path = format!("/Value");
+    if let Some(value_jsonval) = msg_jsonval.pointer(&json_path) {
         value_str = value_jsonval.to_string();
         if value_str.len()>2 {
             value_str = value_str[1..value_str.len()-1].to_string();
         }
     }
-    if let Some(gas_limit_jsonval) = msg_jsonval.pointer("/GasLimit") {
+
+    let json_path = format!("/GasLimit");
+    if let Some(gas_limit_jsonval) = msg_jsonval.pointer(&json_path) {
         gas_limit_u64 = match gas_limit_jsonval.as_u64() {
             Some(n) => { n },
             None => { 0 },
         }
     }
-    if let Some(gas_price_jsonval) = msg_jsonval.pointer("/GasPrice") {
+
+    let json_path = format!("/GasPrice");
+    if let Some(gas_price_jsonval) = msg_jsonval.pointer(&json_path) {
         gas_price_str = gas_price_jsonval.to_string();
         if gas_price_str.len()>2 {
             gas_price_str = gas_price_str[1..gas_price_str.len()-1].to_string();
         }
     }
-    if let Some(method_jsonval) = msg_jsonval.pointer("/Method") {
+
+    let json_path = format!("/Method");
+    if let Some(method_jsonval) = msg_jsonval.pointer(&json_path) {
         method_str = method_jsonval.to_string();
         if method_str.len()>2 {
             method_str = method_str[1..method_str.len()-1].to_string();
         }
     }
-    if let Some(params_jsonval) = msg_jsonval.pointer("/Params") {
+
+    let json_path = format!("/Params");
+    if let Some(params_jsonval) = msg_jsonval.pointer(&json_path) {
         params_str = params_jsonval.to_string();
         if params_str.len()>2 {
             params_str = params_str[1..params_str.len()-1].to_string();
@@ -242,7 +259,8 @@ fn iterate_parents_of_block(block_cid: &str,
         if let Some(cid_msg_jsonval) = parent_msgs_jsonval.pointer(&cid_msg_json_path) {
             let cid_msg_json_str = cid_msg_jsonval.to_string();
 
-            if let Some(cid_jsonval) = cid_msg_jsonval.pointer("/Cid/~1") {
+            let json_path = format!("/Cid/~1");
+            if let Some(cid_jsonval) = cid_msg_jsonval.pointer(&json_path) {
                 cid_str = cid_jsonval.to_string();
                 cid_str = cid_str[1..cid_str.len()-1].to_string();
                 //println!(">>>\ncid_str={}\n<<<\n",cid_str);
@@ -251,7 +269,8 @@ fn iterate_parents_of_block(block_cid: &str,
                 break;
             }
 
-            if let Some(msg_jsonval) = cid_msg_jsonval.pointer("/Message") {
+            let json_path = format!("/Message");
+            if let Some(msg_jsonval) = cid_msg_jsonval.pointer(&json_path) {
                 let msg_fields = parse_msg_fields(msg_jsonval);
                 version_u64 = msg_fields.0;
                 to_str = msg_fields.1;
@@ -331,7 +350,6 @@ fn iterate_messages_for_block(block_cid: &str,
     let block_hdrs_jsonval : jsonrpsee::common::JsonValue = api::chain_get_block(block_cid);
     let bls_aggregate_type_num : i64;
     let mut bls_aggregate_data_str : String;
-    let bls_aggregate_signature : BlsAggregateSignature;
     if let Some(bls_aggregate_jsonval) = block_hdrs_jsonval.pointer("/BLSAggregate") {
         // TODO:  bls_aggregate_type should be a uint, not a str
         if let Some(bls_aggregate_type_jsonval) = bls_aggregate_jsonval.pointer("/Type") {
@@ -375,12 +393,13 @@ fn iterate_messages_for_block(block_cid: &str,
         i += 1;
     }
 
+
     // Loop over each bls message
     i = 0;
     loop {
         let msg_type = MessageTypeFlag::BlsMessage(bls_aggregate_signature.copy());
         let bls_msg_json_path = format!("/BlsMessages/{}",i);
-        if let Some(bls_msg_jsonval) = block_msgs_jsonval.pointer(&bls_msg_json_path) {
+        if let Some(_bls_msg_jsonval) = block_msgs_jsonval.pointer(&bls_msg_json_path) {
             if let Some(next_msg_cid) = vd_msg_cids.pop_front() {
                 //println!("\n>>>>\n{}, {:?}\n<<<<\n",next_msg_cid,bls_aggregate_signature);
                 on_each_message(&next_msg_cid,&msg_type);
@@ -393,6 +412,7 @@ fn iterate_messages_for_block(block_cid: &str,
         }
         i += 1;
     }
+
 
     // Loop over each secpk message
     i = 0;
@@ -506,10 +526,11 @@ fn main() {
                     //
                     // TODO...
             });
-        }
 
-        println!(">> {}       msgs.len",msgs.len());
-        println!(">> {}       msg_type_by_cid.len",msg_type_by_cid.len());
+            println!(">> {}       msgs.len",msgs.len());
+            println!(">> {}       msg_type_by_cid.len",msg_type_by_cid.len());
+    
+        }
 
         i += 1;
     }
@@ -517,6 +538,10 @@ fn main() {
 
     ////////////////////// Plan below //////////////////////////////////////////////
     //
+    // 1.  Kill any the warnings
+    // 0.  Verift the first 10 height of lotus1
+    // 0.  Simplify this file:
+    //      - Factor out some of the repetitive jsonval -> string/u64 code
     // 0.  In the interest of making progress, trap Ctrl+C and persist to disk the largest fully completed
     //     tipset height so that we can pick up at that height+1 next time we start.
     // 2. For any block_cid that we fail on, note it in a failed blocks list and just continue on with the
@@ -525,7 +550,19 @@ fn main() {
     //     Can use this to make index updates faster since don't even try to store msg_cids if
     //     already in db.
     // 3.  On shutdown, persist the list of msg_id=>msg_type_flag without receipts yet, so we
-    //     can resume with it next time.
+    //     can resume with it next time.  And:
+        // TODO:
+        // - Create a struct MessageFields without msg_type or receipt
+        // - Lifecycle of a Message:
+        //    - Initially you only have some subset of {Cid,MessageFields,MessageTypeFlag,ReceiptStatus}
+        //    and can save those partial states in a "partial Messages" collection somewhere
+        //    - When you have all the components, then you construct Message and save it in a
+        //    "complete Messages" collection somewhere
+        //    - The completes can be serialized to disk and deserialized later.  Partials can
+        //    be serialized just as a msg_cid that is known to be missing.
+        //    - Indices are constructed to allow fast lookup of complete Message structs 
+        //        - e.g., lookup of the Payload CID for a Piece CID and vice-versa (known message type)
+        //        - e.g., lookup whether a payment channel exists for a pair of addresses
     // 4.  Support a mode where we are running backward in time from current max height, to curr max -1, 
     //     curr max -2, etc.  It means that instead of automatically putting current blocks into 
     //     msg_id=>msg_type_flag map, we need to check whether we already have that msg_id with a receipt
