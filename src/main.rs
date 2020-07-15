@@ -1,3 +1,65 @@
+#![feature(concat_idents)]
+
+//
+// Macros to cut down on boilerplate code to convert JsonValue
+// objects to the native String, i32, u64, etc., rust types.
+// (These could be improved on a lot!)
+//
+macro_rules! json_val_to_i32 {
+    ( $json_path:literal , $jsonval:ident, $receiving_variable:ident, $receiving_variable_default_value:literal ) => {
+        #[allow(unused_mut)]
+        let mut $receiving_variable: i32 = $receiving_variable_default_value;
+        let json_path = format!($json_path);
+        if let Some(jsonval) = $jsonval.pointer(&json_path) {
+            if let Some(inner_val) = jsonval.as_i32() {
+                $receiving_variable = inner_val;
+            }
+        }
+    }
+}
+
+macro_rules! json_val_to_i64 {
+    ( $json_path:literal , $jsonval:ident, $receiving_variable:ident, $receiving_variable_default_value:literal ) => {
+        #[allow(unused_mut)]
+        let mut $receiving_variable: i64 = $receiving_variable_default_value;
+        let json_path = format!($json_path);
+        if let Some(jsonval) = $jsonval.pointer(&json_path) {
+            if let Some(inner_val) = jsonval.as_i64() {
+                $receiving_variable = inner_val;
+            }
+        }
+    }
+}
+
+macro_rules! json_val_to_string {
+    ( $json_path:literal , $jsonval:ident, $receiving_variable:ident, $receiving_variable_default_value:literal ) => {
+        #[allow(unused_mut)]
+        let mut $receiving_variable: String = $receiving_variable_default_value.to_string();
+        let json_path = format!($json_path);
+        if let Some(jsonval) = $jsonval.pointer(&json_path) {
+            $receiving_variable = jsonval.to_string();
+            if $receiving_variable.len()>2 {
+                $receiving_variable = $receiving_variable[1..$receiving_variable.len()-1].to_string();
+            }
+        }
+    }
+}
+
+macro_rules! json_val_to_u64 {
+    ( $json_path:literal , $jsonval:ident, $receiving_variable:ident, $receiving_variable_default_value:literal ) => {
+        #[allow(unused_mut)]
+        let mut $receiving_variable: u64 = $receiving_variable_default_value;
+        let json_path = format!($json_path);
+        if let Some(jsonval) = $jsonval.pointer(&json_path) {
+            if let Some(inner_val) = jsonval.as_u64() {
+                $receiving_variable = inner_val;
+            }
+        }
+    }
+}
+
+
+
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -68,20 +130,26 @@ struct Message {
 
 mod api;
 
+
+
+
 fn get_tipset_by_height(height: u64) -> Vec<String> {
     let result : jsonrpsee::common::JsonValue = api::chain_get_tipset_by_height(height);
     let mut ret : Vec<String> = vec!();
-
+    let mut cid_str;
     let mut i = 0;
+
     loop {
         let json_path = format!("/Cids/{}/~1",i);
-        if let Some(cid) = result.pointer(&json_path) {
-            let mut cid_str = cid.to_string();
+        if let Some(cid_jsonval) = result.pointer(&json_path) {
+            cid_str = cid_jsonval.to_string();
             if cid_str.len()>2 {
                 cid_str = cid_str[1..cid_str.len()-1].to_string();
             }
+
             //println!("cid_str = '{}'",cid_str);
             ret.push(cid_str);
+
         } else {
             break;
         }
@@ -112,33 +180,10 @@ fn get_current_tipset_height() -> u64 {
 }
 
 fn parse_receipt_fields(receipt_jsonval: &jsonrpsee::common::JsonValue) -> (i64,String,u64) {
-        let mut receipt_exit_code: i64 = -1;
-        let mut receipt_return: String = "".to_string();
-        let mut receipt_gas_used: u64 = 0;
-
-        let json_path = format!("/ExitCode");
-        if let Some(exitcode_jsonval) = receipt_jsonval.pointer(&json_path) {
-            if let Some(exitcode_i64) = exitcode_jsonval.as_i64() {
-                receipt_exit_code = exitcode_i64;
-            }
-        }
-
-        let json_path = format!("/Return");
-        if let Some(return_jsonval) = receipt_jsonval.pointer(&json_path) {
-            receipt_return = return_jsonval.to_string();
-            if receipt_return.len()>2 {
-                receipt_return = receipt_return[1..receipt_return.len()-1].to_string();
-            }
-        }
-
-        let json_path = format!("/GasUsed");
-        if let Some(receipt_gas_used_jsonval) = receipt_jsonval.pointer(&json_path) {
-            if let Some(gas_used_u64) = receipt_gas_used_jsonval.as_u64() {
-                receipt_gas_used = gas_used_u64;
-            }
-        }
-
-        (receipt_exit_code,receipt_return,receipt_gas_used)
+    json_val_to_i64!(    "/ExitCode", receipt_jsonval, receipt_exit_code, -1);
+    json_val_to_string!( "/Return",   receipt_jsonval, receipt_return,    "");
+    json_val_to_u64!(    "/GasUsed",  receipt_jsonval, receipt_gas_used,   0);
+    (receipt_exit_code,receipt_return,receipt_gas_used)
 }
 
 fn parse_msg_fields(msg_jsonval : &jsonrpsee::common::JsonValue) -> (u64,String,String,u64,String,String,u64,String,String) {
