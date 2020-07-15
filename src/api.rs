@@ -21,6 +21,7 @@ jsonrpsee::rpc_api! {
 //
 //////////////////////////////////////////////////////////////////////////////////////
 
+// TODO:  error handling instead of 3X unwraps...
 macro_rules! make_api_function {
     ($method_call_name:literal, $auth_token_value:expr, $expr_evals_to_params:expr) => {
         async_std::task::block_on(async move {
