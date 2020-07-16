@@ -278,7 +278,7 @@ fn get_current_tipset_height() -> u64 {
 fn iterate_parents_of_block(block_cid: &str, 
     msg_type_by_cid: &mut HashMap<String, MessageTypeFlag>, 
     msgs: &mut HashMap<String, Message>, 
-    on_each_msgcid_msg_receipt_tuple: fn( msg_cid: &str,  msg: &Message) )
+    on_each_msgcid_msg_receipt_tuple: fn( msg_cid: &str,  msg: &Message) -> bool )
 {
     let parent_msgs_jsonval : jsonrpsee::common::JsonValue = api::chain_get_parent_messages(block_cid);
     let parent_receipts_jsonval : jsonrpsee::common::JsonValue = api::chain_get_parent_receipts(block_cid);
@@ -339,8 +339,12 @@ fn iterate_parents_of_block(block_cid: &str,
                             .receipt_field(receipt_jsonval)
                             .get();
 
-        on_each_msgcid_msg_receipt_tuple(&cid_str, &message);
-        msgs.insert(cid_str,message);
+        // Invoke callback. If return is true, save message struct
+        let b = on_each_msgcid_msg_receipt_tuple(&cid_str, &message);
+        if b {
+            // Save message struct
+            msgs.insert(cid_str,message);
+        }
 
         i += 1;
     } // loop
@@ -547,6 +551,8 @@ fn main() {
                     // to re-retrieve another time.
                     //
                     // TODO...
+
+                    true
             });
 
             println!(">> {}       msgs.len",msgs.len());
