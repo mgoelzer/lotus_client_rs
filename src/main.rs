@@ -1,4 +1,5 @@
-#![feature(concat_idents)]
+use std::collections::HashMap;
+mod api;
 
 //
 // Macros to cut down on boilerplate code to convert JsonValue
@@ -45,6 +46,33 @@ macro_rules! json_val_to_string {
     }
 }
 
+macro_rules! json_val_to_string_with_formatter {
+    ( $json_path:literal # $arg0:ident , $jsonval:ident, $receiving_variable:ident, $receiving_variable_default_value:literal ) => {
+        #[allow(unused_mut)]
+        let mut $receiving_variable: String = $receiving_variable_default_value.to_string();
+        let json_path = format!($json_path, $arg0);
+        if let Some(jsonval) = $jsonval.pointer(&json_path) {
+            $receiving_variable = jsonval.to_string();
+            if $receiving_variable.len()>2 {
+                $receiving_variable = $receiving_variable[1..$receiving_variable.len()-1].to_string();
+            }
+        }
+    }
+}
+
+macro_rules! json_val_to_i32_with_formatter {
+    ( $json_path:literal # $arg0:ident , $jsonval:ident, $receiving_variable:ident, $receiving_variable_default_value:literal ) => {
+        #[allow(unused_mut)]
+        let mut $receiving_variable: i32 = $receiving_variable_default_value;
+        let json_path = format!($json_path, $arg0);
+        if let Some(jsonval) = $jsonval.pointer(&json_path) {
+            if let Ok(inner_val) = jsonval.to_string().parse::<i32>() {
+                $receiving_variable = inner_val;
+            }
+        }
+    }
+}
+
 macro_rules! json_val_to_u64 {
     ( $json_path:literal , $jsonval:ident, $receiving_variable:ident, $receiving_variable_default_value:literal ) => {
         #[allow(unused_mut)]
@@ -58,9 +86,9 @@ macro_rules! json_val_to_u64 {
     }
 }
 
-
-
-use std::collections::HashMap;
+//
+// Data structures for storing and processing blockchain messages
+//
 
 #[derive(Debug, Clone)]
 struct BlsAggregateSignature {
@@ -114,7 +142,7 @@ enum ReceiptStatus {
 }
 
 #[derive(Debug, Clone)]
-struct Message {
+pub struct Message {
     msg_type: MessageTypeFlag,
     version: u64, 
     to: String,
@@ -128,148 +156,121 @@ struct Message {
     receipt: ReceiptStatus,
 }
 
-mod api;
+impl Message {
+    pub fn new() -> Message {
+        Message{
+            msg_type: MessageTypeFlag::Unknown,
+            version : 0,
+            to : "".to_string(),
+            from : "".to_string(),
+            nonce : 0,
+            value : "0".to_string(),
+            gas_price : "0".to_string(),
+            gas_limit : 0,
+            method : "0".to_string(),
+            params : "".to_string(),
+            receipt: ReceiptStatus::NoReceipt,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct MessageBuilder {
+    pub msg: Message,
+}
+
+impl MessageBuilder {
+    pub fn new() -> MessageBuilder {
+        MessageBuilder{
+            msg: Message::new(),
+        }
+    }
+
+    pub fn msg_fields<'a>(&'a mut self, 
+        msg_jsonval: &jsonrpsee::common::JsonValue) -> &'a mut MessageBuilder 
+    {
+        json_val_to_u64!(    "/Version", msg_jsonval, version_u64,      0);
+        json_val_to_string!( "/To",      msg_jsonval, to_str,          "");
+        json_val_to_string!( "/From",    msg_jsonval, from_str,        "");
+        json_val_to_u64!(    "/Nonce",   msg_jsonval, nonce_u64,        0);
+        json_val_to_string!( "/Value",   msg_jsonval, value_str,      "0");
+        json_val_to_u64!(    "/GasLimit",msg_jsonval, gas_limit_u64,    0);
+        json_val_to_string!( "/GasPrice",msg_jsonval, gas_price_str,  "0");
+        json_val_to_string!( "/Method",  msg_jsonval, method_str,     "0");
+        json_val_to_string!( "/Params",  msg_jsonval, params_str,      "");
+        self.msg.version   = version_u64;
+        self.msg.to        = to_str;
+        self.msg.from      = from_str;
+        self.msg.nonce     = nonce_u64;
+        self.msg.value     = value_str;
+        self.msg.gas_limit = gas_limit_u64;
+        self.msg.gas_price = gas_price_str;
+        self.msg.method    = method_str;
+        self.msg.params    = params_str;
+        self
+    }
+
+    pub fn receipt_field<'a>(&'a mut self, receipt_jsonval: &jsonrpsee::common::JsonValue) -> &'a mut MessageBuilder {
+        json_val_to_i64!(    "/ExitCode", receipt_jsonval, receipt_exit_code, -1);
+        json_val_to_string!( "/Return",   receipt_jsonval, receipt_return,    "");
+        json_val_to_u64!(    "/GasUsed",  receipt_jsonval, receipt_gas_used,   0);
+        self.msg.receipt = ReceiptStatus::Receipt(ReceiptFields{
+            exit_code: receipt_exit_code,
+            ret: receipt_return,
+            gas_used: receipt_gas_used,
+        });
+        self
+    }
+
+    pub fn msg_type<'a>(&'a mut self, msg_type_flag: MessageTypeFlag) -> &'a mut MessageBuilder {
+        self.msg.msg_type = msg_type_flag;
+        self
+    }
+
+    pub fn get(&mut self) -> Message {
+        let mut alt_msg = Message::new();
+        std::mem::swap(&mut self.msg, &mut alt_msg);
+        alt_msg
+    }
+}
 
 
-
+//
+// Blockchain reading and indexing functions
+//
 
 fn get_tipset_by_height(height: u64) -> Vec<String> {
     let result : jsonrpsee::common::JsonValue = api::chain_get_tipset_by_height(height);
     let mut ret : Vec<String> = vec!();
-    let mut cid_str;
+    let mut cid_str : String;
     let mut i = 0;
-
     loop {
-        let json_path = format!("/Cids/{}/~1",i);
-        if let Some(cid_jsonval) = result.pointer(&json_path) {
-            cid_str = cid_jsonval.to_string();
-            if cid_str.len()>2 {
-                cid_str = cid_str[1..cid_str.len()-1].to_string();
-            }
-
-            //println!("cid_str = '{}'",cid_str);
+        json_val_to_string_with_formatter!( "/Cids/{}/~1"#i, result, cid_str, "");
+        if cid_str != "" {
             ret.push(cid_str);
-
         } else {
             break;
         }
         i += 1;
     }
-
     ret
 }
 
 fn get_current_tipset_height() -> u64 {
     let result : jsonrpsee::common::JsonValue = api::chain_head();
     let mut i = 0;
+    let mut height_i32 : i32;
     let mut max_height = 0;
     loop {
-        let json_path = format!("/Blocks/{}/Height",i);
-        if let Some(height) = result.pointer(&json_path) {
-            //println!("height = {}",height);
-            let height_i32 = height.to_string().parse::<i32>().unwrap();
-            if height_i32 > max_height {
-                max_height = height_i32;
-            }
+        json_val_to_i32_with_formatter!("/Blocks/{}/Height"#i, result, height_i32, 0);
+        if height_i32 > 0 {
+            max_height = std::cmp::max(max_height,height_i32);
         } else {
             break;
         }
         i += 1;
     }
     max_height as u64
-}
-
-fn parse_receipt_fields(receipt_jsonval: &jsonrpsee::common::JsonValue) -> (i64,String,u64) {
-    json_val_to_i64!(    "/ExitCode", receipt_jsonval, receipt_exit_code, -1);
-    json_val_to_string!( "/Return",   receipt_jsonval, receipt_return,    "");
-    json_val_to_u64!(    "/GasUsed",  receipt_jsonval, receipt_gas_used,   0);
-    (receipt_exit_code,receipt_return,receipt_gas_used)
-}
-
-fn parse_msg_fields(msg_jsonval : &jsonrpsee::common::JsonValue) -> (u64,String,String,u64,String,String,u64,String,String) {
-    let mut version_u64 : u64 = 0;
-    let mut to_str : String = "".to_string();
-    let mut from_str : String = "".to_string();
-    let mut nonce_u64 : u64 = 0;
-    let mut value_str : String = "0".to_string();
-    let mut gas_price_str : String = "0".to_string();
-    let mut gas_limit_u64 : u64 = 0;
-    let mut method_str : String = "0".to_string();
-    let mut params_str : String = "".to_string();
-
-    let json_path = format!("/Version");
-    if let Some(version_jsonval) = msg_jsonval.pointer(&json_path) {
-        version_u64 = match version_jsonval.as_u64() {
-            Some(n) => { n },
-            None => { 0 },
-        }
-    }
-
-    let json_path = format!("/To");
-    if let Some(to_jsonval) = msg_jsonval.pointer(&json_path) {
-        to_str = to_jsonval.to_string();
-        if to_str.len()>2 {
-            to_str = to_str[1..to_str.len()-1].to_string();
-        }
-    }
-
-    let json_path = format!("/From");
-    if let Some(from_jsonval) = msg_jsonval.pointer(&json_path) {
-        from_str = from_jsonval.to_string();
-        if from_str.len()>2 {
-            from_str = from_str[1..from_str.len()-1].to_string();
-        }
-    }
-
-    let json_path = format!("/Nonce");
-    if let Some(nonce_jsonval) = msg_jsonval.pointer(&json_path) {
-        nonce_u64 = match nonce_jsonval.as_u64() {
-            Some(n) => { n },
-            None => { 0 },
-        }
-    }
-
-    let json_path = format!("/Value");
-    if let Some(value_jsonval) = msg_jsonval.pointer(&json_path) {
-        value_str = value_jsonval.to_string();
-        if value_str.len()>2 {
-            value_str = value_str[1..value_str.len()-1].to_string();
-        }
-    }
-
-    let json_path = format!("/GasLimit");
-    if let Some(gas_limit_jsonval) = msg_jsonval.pointer(&json_path) {
-        gas_limit_u64 = match gas_limit_jsonval.as_u64() {
-            Some(n) => { n },
-            None => { 0 },
-        }
-    }
-
-    let json_path = format!("/GasPrice");
-    if let Some(gas_price_jsonval) = msg_jsonval.pointer(&json_path) {
-        gas_price_str = gas_price_jsonval.to_string();
-        if gas_price_str.len()>2 {
-            gas_price_str = gas_price_str[1..gas_price_str.len()-1].to_string();
-        }
-    }
-
-    let json_path = format!("/Method");
-    if let Some(method_jsonval) = msg_jsonval.pointer(&json_path) {
-        method_str = method_jsonval.to_string();
-        if method_str.len()>2 {
-            method_str = method_str[1..method_str.len()-1].to_string();
-        }
-    }
-
-    let json_path = format!("/Params");
-    if let Some(params_jsonval) = msg_jsonval.pointer(&json_path) {
-        params_str = params_jsonval.to_string();
-        if params_str.len()>2 {
-            params_str = params_str[1..params_str.len()-1].to_string();
-        }
-    }
-
-    (version_u64, to_str, from_str, nonce_u64, value_str, gas_price_str, gas_limit_u64, method_str, params_str)
 }
 
 // combines the results of Filecoin.ChainGetParentMessages and .ChainGetParentReceipts
@@ -281,24 +282,14 @@ fn iterate_parents_of_block(block_cid: &str,
 {
     let parent_msgs_jsonval : jsonrpsee::common::JsonValue = api::chain_get_parent_messages(block_cid);
     let parent_receipts_jsonval : jsonrpsee::common::JsonValue = api::chain_get_parent_receipts(block_cid);
+    
     let mut i : u32 = 0;
     let mut consumed_all_cid_msg_pairs = false;
     loop {
         let mut cid_str : String = "".to_string();
-
-        let mut version_u64 : u64 = 0;
-        let mut to_str : String = "".to_string();
-        let mut from_str : String = "".to_string();
-        let mut nonce_u64 : u64 = 0;
-        let mut value_str : String = "0".to_string();
-        let mut gas_price_str : String = "0".to_string();
-        let mut gas_limit_u64 : u64 = 0;
-        let mut method_str : String = "0".to_string();
-        let mut params_str : String = "".to_string();  
-        
-        let mut receipt_exit_code: i64 = -1;
-        let mut receipt_return: String = "".to_string();
-        let mut receipt_gas_used: u64 = 0;
+        let mut msg_builder = MessageBuilder::new();
+        let mut msg_jsonval : &jsonrpsee::common::JsonValue = &jsonrpsee::common::JsonValue::Null;
+        let mut receipt_jsonval : &jsonrpsee::common::JsonValue = &jsonrpsee::common::JsonValue::Null;
 
         let cid_msg_json_path = format!("/{}",i);
         if let Some(cid_msg_jsonval) = parent_msgs_jsonval.pointer(&cid_msg_json_path) {
@@ -308,24 +299,14 @@ fn iterate_parents_of_block(block_cid: &str,
             if let Some(cid_jsonval) = cid_msg_jsonval.pointer(&json_path) {
                 cid_str = cid_jsonval.to_string();
                 cid_str = cid_str[1..cid_str.len()-1].to_string();
-                //println!(">>>\ncid_str={}\n<<<\n",cid_str);
             } else {
                 eprintln!("error: failed on cid_str extraction from this json blob:\n>>>>>\n'{}'\n<<<<<\n",cid_msg_json_str);
                 break;
             }
 
             let json_path = format!("/Message");
-            if let Some(msg_jsonval) = cid_msg_jsonval.pointer(&json_path) {
-                let msg_fields = parse_msg_fields(msg_jsonval);
-                version_u64 = msg_fields.0;
-                to_str = msg_fields.1;
-                from_str = msg_fields.2;
-                nonce_u64 = msg_fields.3;
-                value_str = msg_fields.4;
-                gas_price_str = msg_fields.5;
-                gas_limit_u64 = msg_fields.6;
-                method_str = msg_fields.7;
-                params_str = msg_fields.8;
+            if let Some(msg_jsonval_) = cid_msg_jsonval.pointer(&json_path) {
+                msg_jsonval = msg_jsonval_;
             } else {
                 eprintln!("error: failed on msg_jsonval extraction from this json blob:\n>>>>>\n'{}'\n<<<<<\n",cid_msg_json_str);
                 break;
@@ -335,11 +316,8 @@ fn iterate_parents_of_block(block_cid: &str,
         }
 
         let receipt_json_path = format!("/{}",i);
-        if let Some(receipt_jsonval) = parent_receipts_jsonval.pointer(&receipt_json_path) {
-            let fields = parse_receipt_fields(receipt_jsonval);
-            receipt_exit_code = fields.0;
-            receipt_return = fields.1;
-            receipt_gas_used = fields.2;
+        if let Some(receipt_jsonval_) = parent_receipts_jsonval.pointer(&receipt_json_path) {
+            receipt_jsonval = receipt_jsonval_;
             assert_ne!(consumed_all_cid_msg_pairs,true,"All (cid,msg) pairs consumed but there is >= 1 unconsumed receipt: mismatch");
         } else {
             assert_eq!(consumed_all_cid_msg_pairs,true,"All (cid,msg) pairs not consumed yet but no remaining receipts: mismatch");
@@ -355,27 +333,14 @@ fn iterate_parents_of_block(block_cid: &str,
         }
 
         // Make the message struct
-        let msg : Message = Message{
-            msg_type: msg_type_flag,
-            version: version_u64,
-            to: to_str,
-            from: from_str,
-            nonce: nonce_u64,
-            value: value_str,
-            gas_price: gas_price_str,
-            gas_limit: gas_limit_u64,
-            method: method_str,
-            params: params_str,
-            receipt: ReceiptStatus::Receipt(ReceiptFields{
-                exit_code: receipt_exit_code,
-                ret: receipt_return,
-                gas_used: receipt_gas_used,
-            })
-        };
+        let message : Message = msg_builder
+                            .msg_fields(msg_jsonval)
+                            .msg_type(msg_type_flag)
+                            .receipt_field(receipt_jsonval)
+                            .get();
 
-        on_each_msgcid_msg_receipt_tuple(&cid_str, &msg);
-        //println!("msg: {:?}",msg);
-        msgs.insert(cid_str,msg);
+        on_each_msgcid_msg_receipt_tuple(&cid_str, &message);
+        msgs.insert(cid_str,message);
 
         i += 1;
     } // loop
@@ -509,22 +474,33 @@ fn main() {
     let mut min_height : u64 = 0;
     let mut max_height : u64 = 999999999; // an impossibly large height that will get trimmed by max TSH
 
-    let args : Vec<String> = std::env::args().collect();
+    let mut args : Vec<String> = std::env::args().collect();
+    let progname = args.remove(0);
+    let usage_and_exit = |ret| { 
+        let path = std::path::Path::new(&progname);
+        let progname = path.file_name().unwrap().to_string_lossy();
+        println!("\nUSAGE:  {} [--min=N] [--max=N]\n", progname); 
+        std::process::exit(ret); 
+    };
     for mut argv in args {
         if argv.starts_with(min_cli_arg) {
             argv = argv[min_cli_arg.len()..].to_string();
+
             if let Ok(n) = argv.parse::<u64>() {
                 min_height = n;
-            } 
+            }
         } else if argv.starts_with(max_cli_arg) {
             argv = argv[max_cli_arg.len()..].to_string();
             if let Ok(n) = argv.parse::<u64>() {
                 max_height = n;
-            } 
+            }
+        } else {
+            eprintln!("command line argument '{}' was not expected",&argv);
+            usage_and_exit(1);
         }
     }
 
-    let curr_tipset_height = get_current_tipset_height();
+    let mut curr_tipset_height = get_current_tipset_height();
     //println!("current tipset height: {}",curr_tipset_height);
 
     //
@@ -540,7 +516,8 @@ fn main() {
     let mut i : u64 = max(min_height,0 as u64);
     println!("Iterating from height {} to {}",i,min(max_height,curr_tipset_height));
     loop {
-        if i > min(max_height,get_current_tipset_height()) {
+        curr_tipset_height = get_current_tipset_height();
+        if i > min(max_height,curr_tipset_height) {
             break
         }
 
