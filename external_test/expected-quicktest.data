@@ -1,1 +1,56 @@
-MD5 (TMPFILE) = 312c2d0288fbb7bff2b8391c5680d5c6
+maxheight=9
+Iterating from height 0 to 9
+Height 0 : blk_cid bafy2bzacednghy3w2e42xqrgeisswleti2uf2dno4ffaieuge2wfrbigqwdv6...
+>> 0       msgs.len
+>> 0       msg_type_by_cid.len
+Height 1 : blk_cid bafy2bzacebtfstfnqx7sc6phjxbdzin6vm4gvel5vcnnoqm6eegum3cj5bdra...
+block messages:  bafy2bzaceahhze5r6ceij7ctcxadje2miweqxzcuuamzup2k5bb423tyoopve : BlsMessage(BlsAggregateSignature { type_num: 2, data: "mMooKUrGVr/a9e10xrNSae/HJfBIi0pYGsqEva1W7GgA9/w+DtUI3uyk9Za8XDvpDLgHpRgQgPdBXgM9JpGTNNyP1o8TlAXhW2iGJuWqSXnqs1PmuDno6yTRhUvsFeh4" })
+
+block messages:  bafy2bzacec5rftmvkveut6bcp5emrd45ynsrlxaget66kyakfkxphe62tdvp4 : BlsMessage(BlsAggregateSignature { type_num: 2, data: "mMooKUrGVr/a9e10xrNSae/HJfBIi0pYGsqEva1W7GgA9/w+DtUI3uyk9Za8XDvpDLgHpRgQgPdBXgM9JpGTNNyP1o8TlAXhW2iGJuWqSXnqs1PmuDno6yTRhUvsFeh4" })
+
+block messages:  bafy2bzaced6u2e2s7uyy44lhavoexym7oyzlqnowa36ympogpfmqnzl5l2d36 : BlsMessage(BlsAggregateSignature { type_num: 2, data: "mMooKUrGVr/a9e10xrNSae/HJfBIi0pYGsqEva1W7GgA9/w+DtUI3uyk9Za8XDvpDLgHpRgQgPdBXgM9JpGTNNyP1o8TlAXhW2iGJuWqSXnqs1PmuDno6yTRhUvsFeh4" })
+
+>> 0       msgs.len
+>> 3       msg_type_by_cid.len
+Height 2 : blk_cid bafy2bzacecj2monqoksxhjmwtekscpk72hqo6mobof6tnkdaf73forj4fdzve...
+parent messages:  bafy2bzaceahhze5r6ceij7ctcxadje2miweqxzcuuamzup2k5bb423tyoopve : Message { msg_type: BlsMessage(BlsAggregateSignature { type_num: 2, data: "mMooKUrGVr/a9e10xrNSae/HJfBIi0pYGsqEva1W7GgA9/w+DtUI3uyk9Za8XDvpDLgHpRgQgPdBXgM9JpGTNNyP1o8TlAXhW2iGJuWqSXnqs1PmuDno6yTRhUvsFeh4" }), version: 0, to: "t01002", from: "t3wowfuawcs6dwddo75jum2ddccrrq376oildvblukm4ctybuo5wtylvht5rahhtsoohoca3vdmyyt2zjlwqoa", nonce: 0, value: "0", gas_price: "0", gas_limit: 99999999, method: "4", params: "gVgmACQIARIgxk09Mw1Kika9rMn0cUU05TvWiz3FmsJSiTqjTVoO34E=", receipt: Receipt(ReceiptFields { exit_code: 0, ret: "\"\"", gas_used: 1273 }) }
+
+parent messages:  bafy2bzacec5rftmvkveut6bcp5emrd45ynsrlxaget66kyakfkxphe62tdvp4 : Message { msg_type: BlsMessage(BlsAggregateSignature { type_num: 2, data: "mMooKUrGVr/a9e10xrNSae/HJfBIi0pYGsqEva1W7GgA9/w+DtUI3uyk9Za8XDvpDLgHpRgQgPdBXgM9JpGTNNyP1o8TlAXhW2iGJuWqSXnqs1PmuDno6yTRhUvsFeh4" }), version: 0, to: "t01001", from: "t3q3ay6zvwfipgn4r22iy54r4w7txrgslpxeggphwdj3l6syyoxjcdzfvvmenviccawieg6mmtersp4c56dxwa", nonce: 0, value: "0", gas_price: "0", gas_limit: 99999999, method: "4", params: "gVgmACQIARIgvPQWORHGBoQGKiKB8CGJrYGf2hNGNZorkizwg8bWzhQ=", receipt: Receipt(ReceiptFields { exit_code: 0, ret: "\"\"", gas_used: 1276 }) }
+
+parent messages:  bafy2bzaced6u2e2s7uyy44lhavoexym7oyzlqnowa36ympogpfmqnzl5l2d36 : Message { msg_type: BlsMessage(BlsAggregateSignature { type_num: 2, data: "mMooKUrGVr/a9e10xrNSae/HJfBIi0pYGsqEva1W7GgA9/w+DtUI3uyk9Za8XDvpDLgHpRgQgPdBXgM9JpGTNNyP1o8TlAXhW2iGJuWqSXnqs1PmuDno6yTRhUvsFeh4" }), version: 0, to: "t01000", from: "t3we7ahelr5jp72wvkfonyo2gxa24skk3pa5hqshf7mmj4ra4pun3abpriphga6odssq5h5y445mgxazxasjaq", nonce: 0, value: "0", gas_price: "0", gas_limit: 99999999, method: "4", params: "gVgmACQIARIgqvnF1HvhsBYdJ7Y5iUEcDBZ/Q5/ECXyVCpkEHmaqhY8=", receipt: Receipt(ReceiptFields { exit_code: 0, ret: "\"\"", gas_used: 1276 }) }
+
+>> 3       msgs.len
+>> 0       msg_type_by_cid.len
+Height 3 : blk_cid bafy2bzaceauvnnlcx633r5zeku4h3vyoy432xpah3tpfq5yflzo62bhc364oo...
+>> 3       msgs.len
+>> 0       msg_type_by_cid.len
+Height 4 : blk_cid bafy2bzacecxmtez6lbp2hzrirwdfx3trtvennex5px67a6bkdqehc7xiflk7k...
+>> 3       msgs.len
+>> 0       msg_type_by_cid.len
+Height 5 : blk_cid bafy2bzaceab3hgtmuidewvkpvquckvbhkh2iek7nrmz7dov35gwgshnbbl7rq...
+>> 3       msgs.len
+>> 0       msg_type_by_cid.len
+Height 6 : blk_cid bafy2bzaceb6xmbenj7movubnrsra5hlaln47mcanassiuc22mp5xhk2y23phy...
+>> 3       msgs.len
+>> 0       msg_type_by_cid.len
+Height 7 : blk_cid bafy2bzacedqaq75upn3gq6wbxocdjwlczd4d6mcikaum7ff23oynljbb6ya3g...
+>> 3       msgs.len
+>> 0       msg_type_by_cid.len
+Height 8 : blk_cid bafy2bzacec4lwmvu4b73sno4aivfbnd5uyimtxvm32igmjwmcc3efr55a7ww6...
+>> 3       msgs.len
+>> 0       msg_type_by_cid.len
+Height 8 : blk_cid bafy2bzacecndg7nqfevk2pglzoscnrxvjtjfvciv42xlxxdmyoe5y5ftckd66...
+>> 3       msgs.len
+>> 0       msg_type_by_cid.len
+Height 8 : blk_cid bafy2bzaceax2zujdxkrpc452522ypw5uvlzqyr5ez664syrjutqvivvrpgg7i...
+>> 3       msgs.len
+>> 0       msg_type_by_cid.len
+Height 9 : blk_cid bafy2bzacedyuorsabmrwq6rn5jarn3w4owodcv6rc7vaywrbfhtpu46zypor2...
+>> 3       msgs.len
+>> 0       msg_type_by_cid.len
+Height 9 : blk_cid bafy2bzaceas5qnlaqe6gb3mtgct4yiocxsmibvhap2vh4vws3ktsahohc6nk4...
+>> 3       msgs.len
+>> 0       msg_type_by_cid.len
+Height 9 : blk_cid bafy2bzaceayu24pvfgvqravyiz7vb6s7muciduvjc36iawgq7wwi4mbnhtti6...
+>> 3       msgs.len
+>> 0       msg_type_by_cid.len
