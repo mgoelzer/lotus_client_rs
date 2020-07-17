@@ -1,90 +1,8 @@
+use env_logger; 
 use std::collections::HashMap;
 mod api;
-
-//
-// Macros to cut down on boilerplate code to convert JsonValue
-// objects to the native String, i32, u64, etc., rust types.
-// (These could be improved on a lot!)
-//
-macro_rules! json_val_to_i32 {
-    ( $json_path:literal , $jsonval:ident, $receiving_variable:ident, $receiving_variable_default_value:literal ) => {
-        #[allow(unused_mut)]
-        let mut $receiving_variable: i32 = $receiving_variable_default_value;
-        let json_path = format!($json_path);
-        if let Some(jsonval) = $jsonval.pointer(&json_path) {
-            if let Some(inner_val) = jsonval.as_i32() {
-                $receiving_variable = inner_val;
-            }
-        }
-    }
-}
-
-macro_rules! json_val_to_i64 {
-    ( $json_path:literal , $jsonval:ident, $receiving_variable:ident, $receiving_variable_default_value:literal ) => {
-        #[allow(unused_mut)]
-        let mut $receiving_variable: i64 = $receiving_variable_default_value;
-        let json_path = format!($json_path);
-        if let Some(jsonval) = $jsonval.pointer(&json_path) {
-            if let Some(inner_val) = jsonval.as_i64() {
-                $receiving_variable = inner_val;
-            }
-        }
-    }
-}
-
-macro_rules! json_val_to_string {
-    ( $json_path:literal , $jsonval:ident, $receiving_variable:ident, $receiving_variable_default_value:literal ) => {
-        #[allow(unused_mut)]
-        let mut $receiving_variable: String = $receiving_variable_default_value.to_string();
-        let json_path = format!($json_path);
-        if let Some(jsonval) = $jsonval.pointer(&json_path) {
-            $receiving_variable = jsonval.to_string();
-            if $receiving_variable.len()>2 {
-                $receiving_variable = $receiving_variable[1..$receiving_variable.len()-1].to_string();
-            }
-        }
-    }
-}
-
-macro_rules! json_val_to_string_with_formatter {
-    ( $json_path:literal # $arg0:ident , $jsonval:ident, $receiving_variable:ident, $receiving_variable_default_value:literal ) => {
-        #[allow(unused_mut)]
-        let mut $receiving_variable: String = $receiving_variable_default_value.to_string();
-        let json_path = format!($json_path, $arg0);
-        if let Some(jsonval) = $jsonval.pointer(&json_path) {
-            $receiving_variable = jsonval.to_string();
-            if $receiving_variable.len()>2 {
-                $receiving_variable = $receiving_variable[1..$receiving_variable.len()-1].to_string();
-            }
-        }
-    }
-}
-
-macro_rules! json_val_to_i32_with_formatter {
-    ( $json_path:literal # $arg0:ident , $jsonval:ident, $receiving_variable:ident, $receiving_variable_default_value:literal ) => {
-        #[allow(unused_mut)]
-        let mut $receiving_variable: i32 = $receiving_variable_default_value;
-        let json_path = format!($json_path, $arg0);
-        if let Some(jsonval) = $jsonval.pointer(&json_path) {
-            if let Ok(inner_val) = jsonval.to_string().parse::<i32>() {
-                $receiving_variable = inner_val;
-            }
-        }
-    }
-}
-
-macro_rules! json_val_to_u64 {
-    ( $json_path:literal , $jsonval:ident, $receiving_variable:ident, $receiving_variable_default_value:literal ) => {
-        #[allow(unused_mut)]
-        let mut $receiving_variable: u64 = $receiving_variable_default_value;
-        let json_path = format!($json_path);
-        if let Some(jsonval) = $jsonval.pointer(&json_path) {
-            if let Some(inner_val) = jsonval.as_u64() {
-                $receiving_variable = inner_val;
-            }
-        }
-    }
-}
+mod cli;
+#[macro_use] mod macros;
 
 //
 // Data structures for storing and processing blockchain messages
@@ -216,8 +134,8 @@ impl MessageBuilder {
         json_val_to_u64!(    "/GasUsed",  receipt_jsonval, receipt_gas_used,   0);
         self.msg.receipt = ReceiptStatus::Receipt(ReceiptFields{
             exit_code: receipt_exit_code,
-            ret: receipt_return,
-            gas_used: receipt_gas_used,
+            ret:       receipt_return,
+            gas_used:  receipt_gas_used,
         });
         self
     }
@@ -358,8 +276,10 @@ fn iterate_parents_of_block(block_cid: &str,
 // acts once one each {MsgCid,Message} pair found.
 fn iterate_messages_for_block(block_cid: &str, 
     msg_type_by_cid: &mut HashMap<String, MessageTypeFlag>, 
-    on_each_message: fn(msg_cid: &str, msg_type: &MessageTypeFlag)) 
-{    
+    msgs : &mut HashMap<String, Message>,
+    on_each_message: fn(msg_cid: &str, msg_type: &MessageTypeFlag),
+    on_each_msgcid_msg_receipt_tuple: fn( msg_cid: &str,  msg: &Message) -> bool) 
+{
     // get block header and extract BLSAggregate from it
     let block_hdrs_jsonval : jsonrpsee::common::JsonValue = api::chain_get_block(block_cid);
     let bls_aggregate_type_num : i64;
@@ -465,50 +385,31 @@ fn iterate_messages_for_block(block_cid: &str,
         i += 1;
     }
 
+    //
+    // Iterate the parents_messages and parents_receipts parts of this block
+    //
+    iterate_parents_of_block(block_cid, msg_type_by_cid, msgs, on_each_msgcid_msg_receipt_tuple);
+
     // assert that no msg_cids remain in queue
     assert_eq!(vd_msg_cids.len(),0,"All CIDs must now be exactly consumed");
 }
 
 fn main() {
+    env_logger::init();
+
     //
-    // Command line args:  --min=N and --max=N are bounds on the range of tip set heights to index
+    // Get command line arguments if any
     //
-    let min_cli_arg = "--min=";
-    let max_cli_arg = "--max=";
-    let mut min_height : u64 = 0;
-    let mut max_height : u64 = 999999999; // an impossibly large height that will get trimmed by max TSH
-
-    let mut args : Vec<String> = std::env::args().collect();
-    let progname = args.remove(0);
-    let usage_and_exit = |ret| { 
-        let path = std::path::Path::new(&progname);
-        let progname = path.file_name().unwrap().to_string_lossy();
-        println!("\nUSAGE:  {} [--min=N] [--max=N]\n", progname); 
-        std::process::exit(ret); 
-    };
-    for mut argv in args {
-        if argv.starts_with(min_cli_arg) {
-            argv = argv[min_cli_arg.len()..].to_string();
-
-            if let Ok(n) = argv.parse::<u64>() {
-                min_height = n;
-            }
-        } else if argv.starts_with(max_cli_arg) {
-            argv = argv[max_cli_arg.len()..].to_string();
-            if let Ok(n) = argv.parse::<u64>() {
-                max_height = n;
-            }
-        } else {
-            eprintln!("command line argument '{}' was not expected",&argv);
-            usage_and_exit(1);
-        }
-    }
-
     let mut curr_tipset_height = get_current_tipset_height();
-    //println!("current tipset height: {}",curr_tipset_height);
+    log::info!("current tipset height: {})",curr_tipset_height);
+
+    let params = cli::process_cli_args((0,curr_tipset_height));
+    let min_height = params.0;
+    let max_height = params.1;    
+    log::info!("min={},max={} (curr_tipset_height={})",min_height,max_height,curr_tipset_height);
 
     //
-    // In-memory store
+    // In-memory stores
     //
     let mut msgs = HashMap::new();
     let mut msg_type_by_cid = HashMap::new();
@@ -520,52 +421,41 @@ fn main() {
     let mut i : u64 = max(min_height,0 as u64);
     println!("Iterating from height {} to {}",i,min(max_height,curr_tipset_height));
     loop {
-        curr_tipset_height = get_current_tipset_height();
-        if i > min(max_height,curr_tipset_height) {
-            break
-        }
-
         for blk_cid in get_tipset_by_height(i) {
             println!("Height {} : blk_cid {}...",i,blk_cid);
-            // For teting
-            // blk_cid = "bafy2bzacedtdy7sawc42n2yraczgpvqxf6saejzrz4hvp25k5hytwmcky7cq4"
 
             //
-            // First store up current block's messages (which do not have receipts yet) in msg_type_by_cid 
+            // Iterate current block's messages (which do not have receipts yet).
+            // as well as parent messages (which do)
             //
-            iterate_messages_for_block(&blk_cid, &mut msg_type_by_cid,
+            iterate_messages_for_block(&blk_cid, &mut msg_type_by_cid, &mut msgs,
                 |msg_cid, msg_type_flag| {
                     println!("block messages:  {} : {:?}\n",msg_cid,msg_type_flag);
-            });
-
-            // 
-            // Then gather up parents with their corresponding receipts for long-term storage in index
-            // 
-            iterate_parents_of_block(&blk_cid, &mut msg_type_by_cid, &mut msgs,
-                |msg_cid, msg| {
-                    println!("parent messages:  {} : {:?}\n",msg_cid,msg);
-
-                    // Check the msg_cid and msg struct for well-formedness.
-                    // Save this msg_cid,msg,receipt tuple into index db if good.
-                    // If problems, save this msg_cid to a list of problem cids
-                    // to re-retrieve another time.
-                    //
-                    // TODO...
-
-                    true
+            },  |msg_cid, msg| {
+                println!("parent messages:  {} : {:?}\n",msg_cid,msg);
+                true
             });
 
             println!(">> {}       msgs.len",msgs.len());
             println!(">> {}       msg_type_by_cid.len",msg_type_by_cid.len());
-    
         }
 
+        //
+        // Loop control
+        //
         i += 1;
+        if i > min(max_height,curr_tipset_height) {
+            curr_tipset_height = get_current_tipset_height();
+            if i > min(max_height,curr_tipset_height) {
+                break
+            }
+        }
     }
 
 
     ////////////////////// Plan below //////////////////////////////////////////////
     //
+    // 1.  Turn 'api' into a crate
     // 1.  Kill any the warnings
     // 0.  Verift the first 10 height of lotus1
     // 0.  Simplify this file:

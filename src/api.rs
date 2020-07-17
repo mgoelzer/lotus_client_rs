@@ -5,16 +5,6 @@ use serde_json::json;
 
 static API_SERVER_IP_PORT : &str = "http://lotus1:1234/rpc/v0";
 
-jsonrpsee::rpc_api! {
-    Filecoin {
-        #[rpc(method = "Filecoin.ChainHead")]
-        fn chain_head() -> jsonrpsee::common::JsonValue;
-
-        #[rpc(method = "Filecoin.ChainGetTipSetByHeight")]
-        fn chain_get_tipset_by_height(height: u64, _empty: Vec<String>) -> jsonrpsee::common::JsonValue;
-    }
-}
-
 //////////////////////////////////////////////////////////////////////////////////////
 //
 // make_api_function macro to reduce boilerplate code identical in all api::* methods
@@ -37,7 +27,7 @@ macro_rules! make_api_function {
 }
 
 //
-// Example of using make_api_function:
+// Example of using make_api_function! macro:
 //
 // pub fn chain_get_tipset_by_height(height: u64) -> jsonrpsee::common::JsonValue {
 //     make_api_function!("Filecoin.ChainGetTipSetByHeight","",{
