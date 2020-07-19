@@ -365,26 +365,41 @@ impl<'a> BlockAnalyzer<'_> {
     }
 }
 
+struct Tipset {
+    i : usize,
+    json_val : jsonrpsee::common::JsonValue,
+}
+
+impl Tipset {
+    pub fn new(api : &api::ApiClient, height: u64) -> Tipset {
+        Tipset{
+            i : 0,
+            json_val: api.chain_get_tipset_by_height(height)
+        }
+    }
+}
+
+impl Iterator for Tipset {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let json_path = format!("/Cids/{}/~1",self.i);
+        if let Some(jsonval) = self.json_val.pointer(&json_path) {
+            if let Some(jsonval) = jsonval.as_str() {
+                self.i += 1;
+                Some(jsonval.to_string())
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+}
 
 //
 // Blockchain reading and indexing functions
 //
-
-fn get_tipset_by_height(api : &api::ApiClient, height: u64) -> Vec<String> {
-    let result : jsonrpsee::common::JsonValue = api.chain_get_tipset_by_height(height);
-    let mut ret : Vec<String> = vec!();
-    let mut i = 0;
-    loop {
-        json_val_to_string_with_formatter!( "/Cids/{}/~1"#i, result, cid_str, "");
-        if cid_str != "" {
-            ret.push(cid_str);
-        } else {
-            break;
-        }
-        i += 1;
-    }
-    ret
-}
 
 fn get_current_tipset_height(api : &api::ApiClient) -> u64 {
     let result : jsonrpsee::common::JsonValue = api.chain_head();
@@ -426,7 +441,7 @@ fn executor(exec_params : & cli::ExecutionParameters, api : &api::ApiClient,
     let mut i : u64 = max(exec_params.min,0 as u64);
     log::info!("Iterating from height {} to {}",i,min(exec_params.max,curr_tipset_height));
     loop {
-        let ts_strings : Vec<String> = get_tipset_by_height(&api, i);
+        let ts_strings : Vec<String> = Tipset::new(&api,i).collect();
         if let Some(f) = on_starting_new_tipset {
             f(i,&ts_strings);
         }
