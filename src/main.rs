@@ -365,28 +365,34 @@ impl<'a> BlockAnalyzer<'_> {
     }
 }
 
-struct Tipset {
+////////////////////////////////////////////////////////
+/// 
+/// Tipset
+/// 
+////////////////////////////////////////////////////////
+
+struct Tipsets {
     i : usize,
     json_val : jsonrpsee::common::JsonValue,
 }
 
-impl Tipset {
-    pub fn new(api : &api::ApiClient, height: u64) -> Tipset {
-        Tipset{
+impl Tipsets {
+    pub fn new(api : &api::ApiClient, height: u64) -> Tipsets {
+        Tipsets{
             i : 0,
             json_val: api.chain_get_tipset_by_height(height)
         }
     }
 }
 
-impl Iterator for Tipset {
+impl Iterator for Tipsets {
     type Item = String;
 
     fn next(&mut self) -> Option<Self::Item> {
         let json_path = format!("/Cids/{}/~1",self.i);
+        self.i += 1;
         if let Some(jsonval) = self.json_val.pointer(&json_path) {
             if let Some(jsonval) = jsonval.as_str() {
-                self.i += 1;
                 Some(jsonval.to_string())
             } else {
                 None
@@ -397,24 +403,73 @@ impl Iterator for Tipset {
     }
 }
 
-//
-// Blockchain reading and indexing functions
-//
 
-fn get_current_tipset_height(api : &api::ApiClient) -> u64 {
-    let result : jsonrpsee::common::JsonValue = api.chain_head();
-    let mut i = 0;
-    let mut max_height = 0;
-    loop {
-        json_val_to_i32_with_formatter!("/Blocks/{}/Height"#i, result, height_i32, 0);
-        if height_i32 > 0 {
-            max_height = std::cmp::max(max_height,height_i32);
-        } else {
-            break;
+////////////////////////////////////////////////////////
+/// 
+/// ChainHeadBlocks
+/// 
+////////////////////////////////////////////////////////
+
+pub struct ChainHeadBlock {
+    pub height: u64,
+    // TODO: add other fields
+}
+
+pub struct ChainHeadBlocks {
+    i : usize,
+    json_val : jsonrpsee::common::JsonValue,
+}
+
+impl ChainHeadBlocks {
+    pub fn new(api : &api::ApiClient) -> ChainHeadBlocks {
+        ChainHeadBlocks{
+            i : 0,
+            json_val: api.chain_head()
         }
-        i += 1;
     }
-    max_height as u64
+}
+
+impl Iterator for ChainHeadBlocks {
+    type Item = ChainHeadBlock;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let json_path = format!("/Blocks/{}/Height",self.i);
+        self.i += 1;
+        if let Some(jsonval) = self.json_val.pointer(&json_path) {
+            if let Some(n) = jsonval.as_u64() {
+                Some(ChainHeadBlock{
+                    height: n,
+                })
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+}
+
+
+////////////////////////////////////////////////////////
+/// 
+/// MaxTipsetHeight
+/// 
+////////////////////////////////////////////////////////
+
+struct MaxTipsetHeight {
+    pub max_height : u64,
+}
+
+impl MaxTipsetHeight {
+    pub fn new(api : &api::ApiClient) -> MaxTipsetHeight {
+        let max_height = ChainHeadBlocks::new(api)
+            .map(|head_block| { head_block.height })
+            .max()
+            .unwrap_or(0u64);
+        MaxTipsetHeight{
+            max_height : max_height,
+        }
+    }
 }
 
 fn executor(exec_params : & cli::ExecutionParameters, api : &api::ApiClient, 
@@ -435,13 +490,13 @@ fn executor(exec_params : & cli::ExecutionParameters, api : &api::ApiClient,
     //
     // Iterate over the range of heights
     //
-    let mut curr_tipset_height = get_current_tipset_height(&api);
-    log::debug!("current tipset height: {})",curr_tipset_height);
+    let mut curr_tipset_height = MaxTipsetHeight::new(&api).max_height;
+    log::debug!("current largest tipset height: {})",curr_tipset_height);
     use std::cmp::{min,max};
     let mut i : u64 = max(exec_params.min,0 as u64);
     log::info!("Iterating from height {} to {}",i,min(exec_params.max,curr_tipset_height));
     loop {
-        let ts_strings : Vec<String> = Tipset::new(&api,i).collect();
+        let ts_strings : Vec<String> = Tipsets::new(&api,i).collect();
         if let Some(f) = on_starting_new_tipset {
             f(i,&ts_strings);
         }
@@ -454,13 +509,7 @@ fn executor(exec_params : & cli::ExecutionParameters, api : &api::ApiClient,
 
             // Iterate complete messages referenced in this block, and cids of new messages first
             // appearing in this block.
-            if match on_found_new_message {
-                        Some(_) => { true }
-                        None => { false }
-                } || match on_found_new_message_cid {
-                        Some(_) => { true }
-                        None => { false }
-            }
+            if on_found_new_message.is_some() || on_found_new_message_cid.is_some()
             {
                 block_analyzer.iterate_over_all_messages_in_block(&blk_cid, on_found_new_message, 
                     on_found_new_message_cid);
@@ -480,7 +529,7 @@ fn executor(exec_params : & cli::ExecutionParameters, api : &api::ApiClient,
         //
         i += 1;
         if i > min(exec_params.max,curr_tipset_height) {
-            curr_tipset_height = get_current_tipset_height(&api);
+            curr_tipset_height = MaxTipsetHeight::new(&api).max_height;
             if i > min(exec_params.max,curr_tipset_height) {
                 break
             }
