@@ -163,7 +163,9 @@ To run the above examples, you'll need to repalce `http://lotus1:1234/rpc/v0` wi
 	nohup lotus daemon > ~/lotus-daemon.log &
 	```
 
-## Compile and Running
+## Compiling and Running
+
+To compile, run and use the code in this repo:
 
 ```
 git clone https://github.com/mgoelzer/filecoin-chain-rs
