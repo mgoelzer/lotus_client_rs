@@ -15,11 +15,35 @@ macro_rules! make_api_function {
         async_std::task::block_on(async move {
             let transport = jsonrpsee::transport::http::HttpTransportClient::new(&$selfparam.endpoint_url, $auth_token_value);
             let mut raw_client = jsonrpsee::raw::RawClient::new(transport);
-            let request_id = raw_client.start_request($method_call_name, $expr_evals_to_params).await.unwrap();
-            jsonrpsee::common::from_value(
-                raw_client.request_by_id(request_id).unwrap().await.unwrap() 
-            )
-            .unwrap() 
+            match raw_client.start_request($method_call_name, $expr_evals_to_params).await {
+                Ok(request_id) => {
+                    match raw_client.request_by_id(request_id) {
+                        Some(fut) => {
+                            match fut.await {
+                                Ok(jsonval) => {
+                                    match jsonrpsee::common::from_value::<jsonrpsee::common::JsonValue>(jsonval) {
+                                        Ok(ret) => {
+                                            ret
+                                        },
+                                        Err(e) => {
+                                            jsonrpsee::common::JsonValue::Null
+                                        }
+                                    }
+                                },
+                                Err(e) => {
+                                    jsonrpsee::common::JsonValue::Null
+                                }
+                            }
+                        },
+                        None => {
+                            jsonrpsee::common::JsonValue::Null
+                        }
+                    }
+                },
+                Err(e) => {
+                    jsonrpsee::common::JsonValue::Null
+                }
+            }
         })
     }
 }

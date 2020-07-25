@@ -175,6 +175,8 @@ impl<'a> BlockAnalyzer<'_> {
     fn iterate_over_complete_messages_in_block(&mut self, block_cid: &str, 
         each_complete_message: fn(msg_cid: &str,  msg: &Message))
     {
+        // TODO:  check if these are `jsonrpsee::common::JsonValue::Null`; if so, pause and retry
+        // the requset
         let parent_msgs_jsonval : jsonrpsee::common::JsonValue = self.api.chain_get_parent_messages(block_cid);
         let parent_receipts_jsonval : jsonrpsee::common::JsonValue = self.api.chain_get_parent_receipts(block_cid);
         
@@ -251,6 +253,9 @@ impl<'a> BlockAnalyzer<'_> {
         each_complete_message: std::option::Option<fn(msg_cid: &str,  msg: &Message)>,
         each_new_message:      std::option::Option<fn(msg_cid: &str)>)
     {
+        // TODO:  check if block_hdrs_jsonval is `jsonrpsee::common::JsonValue::Null`; 
+        // if so, pause and retry the requset
+
         // get block header and extract BLSAggregate from it
         let block_hdrs_jsonval : jsonrpsee::common::JsonValue = self.api.chain_get_block(block_cid);
         let bls_aggregate_type_num : i64;
@@ -277,6 +282,8 @@ impl<'a> BlockAnalyzer<'_> {
         }
         let bls_aggregate_signature : BlsAggregateSignature = BlsAggregateSignature::new(bls_aggregate_type_num, &bls_aggregate_data_str);
 
+
+        // TODO:  check if block_msgs_jsonval is null as above => pause and retry
 
         // Build vector of all cids in order
         let block_msgs_jsonval : jsonrpsee::common::JsonValue = self.api.chain_get_block_messages(block_cid);
@@ -377,6 +384,7 @@ impl<'a> BlockAnalyzer<'_> {
 
 pub struct Tipsets {
     i : usize,
+    // TODO:  json_val could be null; if so, pause and retry the request
     json_val : jsonrpsee::common::JsonValue,
 }
 
@@ -384,6 +392,7 @@ impl Tipsets {
     pub fn new(api : &api::ApiClient, height: u64) -> Tipsets {
         Tipsets{
             i : 0,
+            // TODO:  json_val could be null; if so, pause and retry the request
             json_val: api.chain_get_tipset_by_height(height)
         }
     }
@@ -428,6 +437,7 @@ impl ChainHeadBlocks {
     pub fn new(api : &api::ApiClient) -> ChainHeadBlocks {
         ChainHeadBlocks{
             i : 0,
+            // TODO:  json_val could be null; if so, pause and retry the request
             json_val: api.chain_head()
         }
     }
