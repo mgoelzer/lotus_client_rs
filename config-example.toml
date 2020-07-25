@@ -1,34 +1,29 @@
 #
-# config file - save to $HOME/.indexer/config.toml
+# config file - rename to $HOME/.indexer/config.toml
 #
 
-#
-# Values specified here will be default settings,
-# overrideable by command line arguments.
-#
+# (values here are defaults, overrideable by cli args)
 
 #
 # 'endpoint' - where to find the lotus JSON RPC server.
 #
 # Defaults to localhost (http://127.0.0.1:1234/rpc/v0).
-# Uncomment and modify this line to override the default.
+# Uncomment to set a different default.
 #
 #endpoint = "http://127.0.0.1:1234/rpc/v0"
 
 #
-# 'min' - the lowest tipset height at which to start
-# looking for blocks.
+# 'min' - tipset height at which to start scan
 #
 # Defaults to 0.
 #
 #min = 0
 
 #
-# 'max' - the upper limit at which to stop looking
+# 'max' - tipset height at which to stop scan
 #
-# Defaults to (2^64 - 1), the largest possible value.
-# A 'max' number cannot be too large since we'll 
-# never run past the newset tipsets on the chain.
+# Defaults to (2^64 - 1). Value cannot be too
+# large since we can't run past end of chain.
 #
 #max = 18446744073709551615
 
