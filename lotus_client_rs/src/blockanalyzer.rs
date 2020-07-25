@@ -88,6 +88,15 @@ impl Message {
     }
 }
 
+impl std::fmt::Display for Message {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "To: {}\nFrom: {}\nType: {:?}\nVersion: {}\nNonce: {}\nValue: {}\nGas price: {}\nGas limit: {}\nMethod: {}\nParams: {}\nReceipt: {:?}\n", 
+                self.to, self.from, self.msg_type, self.version, self.nonce,
+                self.value, self.gas_price, self.gas_limit, self.method, self.params,
+                self.receipt)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct MessageBuilder {
     pub msg: Message,

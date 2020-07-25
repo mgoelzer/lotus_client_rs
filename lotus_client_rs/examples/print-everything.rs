@@ -10,14 +10,14 @@ fn main() {
         println!("Height {}",height);
     };
     let on_start_new_block = |blkcid:&str| {
-        println!("    Block: {}",blkcid);
+        println!("  Block: {}",blkcid);
     };
-    let on_found_new_message = |msg_cid:&str, _msg:&Message| {
-        println!("        Msg Cid: {}",msg_cid);
+    let on_found_new_message = |msg_cid:&str, msg:&Message| {
+        println!("\n--- message {} ---\n{}--------------------------------------------------------------------------------",msg_cid,msg);
     };
 
-    // Run iterate_over_blockchain with our callbacks on the first 5 blocks
-    iterate_over_blockchain(0, 4, &api, 
+    // Run iterate_over_blockchain with our callbacks on the first few blocks
+    iterate_over_blockchain(0, 3, &api, 
         Some(on_start_new_tipset),
         Some(on_start_new_block),
         None,
