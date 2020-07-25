@@ -1,78 +1,9 @@
-use lotus_client_rs;
-use lotus_client_rs::blockanalyzer::Message;
+use lotus_client_rs::blockanalyzer::{Message,iterate_over_blockchain};
 use env_logger;
 use log;
 mod cli;
 
-fn executor(exec_params : & cli::ExecutionParameters, api : &lotus_client_rs::api::ApiClient, 
-    on_starting_new_tipset:     std::option::Option<fn(height: u64, blocks: &Vec<String>)>,
-    on_starting_block:          std::option::Option<fn(blk_cid: &str)>,
-    on_found_new_message_cid:   std::option::Option<fn(msg_cid: &str)>,
-    on_found_new_message:       std::option::Option<fn(msg_cid: &str, msg: &Message)>,
-    on_finished_block:          std::option::Option<fn(blk_cid: &str)>,
-    on_finished_tipset:         std::option::Option<fn(height: u64)>) 
-{
-    use lotus_client_rs::blockanalyzer::BlockAnalyzer;
-    use lotus_client_rs::blockanalyzer::{Tipsets,MaxTipsetHeight};
-
-    log::info!("executor:  min={},max={},endpoint='{}'",exec_params.min,exec_params.max,exec_params.endpoint);
-
-    //
-    // Construct block analyzer
-    //
-    let mut block_analyzer = BlockAnalyzer::new(&api);
-
-    //
-    // Iterate over the range of heights
-    //
-    let mut curr_tipset_height = MaxTipsetHeight::new(&api).max_height;
-    log::debug!("current largest tipset height: {})",curr_tipset_height);
-    use std::cmp::{min,max};
-    let mut i : u64 = max(exec_params.min,0 as u64);
-    log::info!("Iterating from height {} to {}",i,min(exec_params.max,curr_tipset_height));
-    loop {
-        let ts_strings : Vec<String> = Tipsets::new(&api,i).collect();
-        if let Some(f) = on_starting_new_tipset {
-            f(i,&ts_strings);
-        }
-        for blk_cid in ts_strings {
-            if let Some(f) = on_starting_block {
-                f(&blk_cid);
-            }
-
-            log::info!("Height {} : blk_cid {}...",i,blk_cid);
-
-            // Iterate complete messages referenced in this block, and cids of new messages first
-            // appearing in this block.
-            if on_found_new_message.is_some() || on_found_new_message_cid.is_some()
-            {
-                block_analyzer.iterate_over_all_messages_in_block(&blk_cid, on_found_new_message, 
-                    on_found_new_message_cid);
-            }
-
-            if let Some(f) = on_finished_block {
-                f(&blk_cid);
-            }
-        }
-
-        if let Some(f) = on_finished_tipset {
-            f(i);
-        }
-
-        //
-        // Loop control
-        //
-        i += 1;
-        if i > min(exec_params.max,curr_tipset_height) {
-            curr_tipset_height = MaxTipsetHeight::new(&api).max_height;
-            if i > min(exec_params.max,curr_tipset_height) {
-                break
-            }
-        }
-    }
-}
-
-fn main() {    
+fn main() {
     env_logger::Builder::from_default_env().format_timestamp(None).init();
 
     // Get CLI and config.toml args
@@ -108,8 +39,8 @@ fn main() {
         log::info!("cid = '{}'\n\nmsg={:?}",_msg_cid,_msg);
     };
 
-    // Run executor with our callbacks
-    executor(&exec_params, &api, 
+    // Run iterate_over_blockchain with our callbacks
+    iterate_over_blockchain(exec_params.min, exec_params.max, &api, 
         Some(on_start_new_tipset),
         Some(on_start_new_block),
         Some(on_found_new_message_cid),
@@ -119,8 +50,6 @@ fn main() {
     );
 }
 
-//1. Move all block analyzer stuff to another file
-//3. Write the callback logic I want for demo (both simple and useful)
 //4. Put the simple demo in the README.md as an example of what you can do
 //      --> Simple demo could be to accumulate how much FC has been spend on storage vs retrieval
 //      --> more complex may require postgres integration

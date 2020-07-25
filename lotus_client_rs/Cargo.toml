@@ -9,3 +9,4 @@ jsonrpsee = { git = "https://github.com/mgoelzer/jsonrpsee", branch = "auth-toke
 async-std = "1.6.2"
 serde = { version = "1.0.114", features = ["derive"] }
 serde_json = { version = "1.0.56" , features = ["preserve_order"] }
+log = "0.4.11"

@@ -1,3 +1,4 @@
+use log;
 use crate::api;
 use std::collections::HashMap;
 // See https://github.com/rust-lang/rust/issues/57966 re why this is commented
@@ -462,6 +463,78 @@ impl MaxTipsetHeight {
             .unwrap_or(0u64);
         MaxTipsetHeight{
             max_height : max_height,
+        }
+    }
+}
+
+////////////////////////////////////////////////////////
+/// 
+/// iterate_over_blockchain() - main crate entrypoint
+/// 
+////////////////////////////////////////////////////////
+
+pub fn iterate_over_blockchain(
+    iterate_from_min_height:    u64,
+    iterate_to_max_height:      u64,
+    api:                        &crate::api::ApiClient, 
+    on_starting_new_tipset:     std::option::Option<fn(height: u64, blocks: &Vec<String>)>,
+    on_starting_block:          std::option::Option<fn(blk_cid: &str)>,
+    on_found_new_message_cid:   std::option::Option<fn(msg_cid: &str)>,
+    on_found_new_message:       std::option::Option<fn(msg_cid: &str, msg: &Message)>,
+    on_finished_block:          std::option::Option<fn(blk_cid: &str)>,
+    on_finished_tipset:         std::option::Option<fn(height: u64)>) 
+{
+    //
+    // Construct block analyzer
+    //
+    let mut block_analyzer = BlockAnalyzer::new(&api);
+
+    //
+    // Iterate over the range of heights
+    //
+    let mut curr_tipset_height = MaxTipsetHeight::new(&api).max_height;
+    log::debug!("current largest tipset height: {})",curr_tipset_height);
+    use std::cmp::{min,max};
+    let mut i : u64 = max(iterate_from_min_height,0 as u64);
+    log::info!("Iterating from height {} to {}",i,min(iterate_to_max_height,curr_tipset_height));
+    loop {
+        let ts_strings : Vec<String> = Tipsets::new(&api,i).collect();
+        if let Some(f) = on_starting_new_tipset {
+            f(i,&ts_strings);
+        }
+        for blk_cid in ts_strings {
+            if let Some(f) = on_starting_block {
+                f(&blk_cid);
+            }
+
+            log::info!("Height {} : blk_cid {}...",i,blk_cid);
+
+            // Iterate complete messages referenced in this block, and cids of new messages first
+            // appearing in this block.
+            if on_found_new_message.is_some() || on_found_new_message_cid.is_some()
+            {
+                block_analyzer.iterate_over_all_messages_in_block(&blk_cid, on_found_new_message, 
+                    on_found_new_message_cid);
+            }
+
+            if let Some(f) = on_finished_block {
+                f(&blk_cid);
+            }
+        }
+
+        if let Some(f) = on_finished_tipset {
+            f(i);
+        }
+
+        //
+        // Loop control
+        //
+        i += 1;
+        if i > min(iterate_to_max_height,curr_tipset_height) {
+            curr_tipset_height = MaxTipsetHeight::new(&api).max_height;
+            if i > min(iterate_to_max_height,curr_tipset_height) {
+                break
+            }
         }
     }
 }
