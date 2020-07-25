@@ -10,16 +10,15 @@ const CONFIG_FILENAME : &str = "config.toml";
 #[serde(default)]
 #[structopt(name = "indexer")]
 struct Opt {
-    /// URL of your Lotus instance
+    /// url of lotus api
     #[structopt(default_value = "http://127.0.0.1:1234/rpc/v0", long, short="e")]
     endpoint: String,
     
-    /// First block height to start with when scanning chain
+    /// start scan at height
     #[structopt(default_value = "0", long)]
     min: u64,
 
-    /// Ending block height at which to terminate.
-    /// Use the default value to never terminate.
+    /// end scan at height (0=never)
     #[structopt(default_value = "18446744073709551615", long)]
     max: u64,
 }
