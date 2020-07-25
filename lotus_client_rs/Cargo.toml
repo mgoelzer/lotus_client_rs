@@ -1,0 +1,11 @@
+[package]
+name = "lotus_client_rs"
+version = "0.1.0"
+authors = ["Mike Goelzer <mike@protocol.ai>"]
+edition = "2018"
+
+[dependencies]
+jsonrpsee = { git = "https://github.com/mgoelzer/jsonrpsee", branch = "auth-token" }
+async-std = "1.6.2"
+serde = { version = "1.0.114", features = ["derive"] }
+serde_json = { version = "1.0.56" , features = ["preserve_order"] }

@@ -183,30 +183,30 @@ impl ApiClient {
     //
     // Returns:  true if the test query was successful, otherwise false.
     pub fn check_endpoint_connection(&self) -> bool {
-        log::debug!("check_endpoint_connection: for endpoint '{}'",self.endpoint_url);
+        //log::debug!("check_endpoint_connection: for endpoint '{}'",self.endpoint_url);
 
-        let height : u64;
+        let _height : u64;
 
         let ret_jsonval : jsonrpsee::common::JsonValue;
         ret_jsonval = self.chain_head();
         let ret_jsonval_option = ret_jsonval.pointer("/Height");
         let height_jsonval : jsonrpsee::common::JsonValue;
         if let Some(height_jsonval) = &ret_jsonval_option {
-            log::info!("check_endpoint_connection: got height_jsonval='{}'",height_jsonval.to_string());
+            //log::info!("check_endpoint_connection: got height_jsonval='{}'",height_jsonval.to_string());
 
             let height_option : Option<u64> = height_jsonval.as_u64();
             if let Some(number) = height_option {
-                height = number;
-                log::info!("check_endpoint_connection: got height='{}'",height);
+                _height = number;
+                //log::info!("check_endpoint_connection: got height='{}'",_height);
             } else {
-                log::debug!("check_endpoint_connection: aborted at u64 unwrap");
+                //log::debug!("check_endpoint_connection: aborted at u64 unwrap");
                 return false;
             }
         } else {
-            log::debug!("check_endpoint_connection: aborted at Height unwrap");
+            //log::debug!("check_endpoint_connection: aborted at Height unwrap");
             return false;
         }
-        log::debug!("check_endpoint_connection: endpoint OK '{}'",self.endpoint_url);
+        //log::debug!("check_endpoint_connection: endpoint OK '{}'",self.endpoint_url);
         true
     }
 

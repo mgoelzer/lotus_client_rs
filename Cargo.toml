@@ -1,21 +1,6 @@
-[package]
-name = "indexer"
-version = "0.1.0"
-authors = ["Mike Goelzer <mike@protocol.ai>"]
-edition = "2018"
+[workspace]
 
-[dependencies]
-jsonrpsee = { git = "https://github.com/mgoelzer/jsonrpsee", branch = "auth-token" }
-async-std = "1.6.2"
-rand = "0.7.3"
-serde = { version = "1.0.114", features = ["derive"] }
-serde_json = { version = "1.0.56" , features = ["preserve_order"] }
-typename = "0.1.2"
-log = "0.4.11"
-env_logger = "0.7.1"
-regex = "1.3.9"
-serde_derive = "1.0.104"
-structopt = "0.3.11"
-structopt-toml = "0.4.5"
-toml = "0.5.6"
-dirs = "3.0.1"
+members = [
+	"lotus_client_rs",
+	"indexer",
+]

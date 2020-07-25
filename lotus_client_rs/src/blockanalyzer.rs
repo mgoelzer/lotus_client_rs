@@ -1,14 +1,7 @@
-use env_logger;
-use log;
+use crate::api;
 use std::collections::HashMap;
-mod api;
-mod cli;
-#[macro_use] mod macros;
-
-
-//
-// Data structures for storing and processing blockchain messages
-//
+// See https://github.com/rust-lang/rust/issues/57966 re why this is commented
+//#[macro_use] use crate::macro;
 
 #[derive(Debug, Clone)]
 pub struct BlsAggregateSignature {
@@ -63,17 +56,17 @@ pub enum ReceiptStatus {
 
 #[derive(Debug, Clone)]
 pub struct Message {
-    msg_type: MessageTypeFlag,
-    version: u64, 
-    to: String,
-    from: String,
-    nonce: u64,
-    value: String,
-    gas_price: String,
-    gas_limit: u64,
-    method: String,
-    params: String,
-    receipt: ReceiptStatus,
+    pub msg_type: MessageTypeFlag,
+    pub version: u64, 
+    pub to: String,
+    pub from: String,
+    pub nonce: u64,
+    pub value: String,
+    pub gas_price: String,
+    pub gas_limit: u64,
+    pub method: String,
+    pub params: String,
+    pub receipt: ReceiptStatus,
 }
 
 impl Message {
@@ -109,15 +102,15 @@ impl MessageBuilder {
     pub fn msg_fields<'a>(&'a mut self, 
         msg_jsonval: &jsonrpsee::common::JsonValue) -> &'a mut MessageBuilder 
     {
-        json_val_to_u64!(    "/Version", msg_jsonval, version_u64,      0);
-        json_val_to_string!( "/To",      msg_jsonval, to_str,          "");
-        json_val_to_string!( "/From",    msg_jsonval, from_str,        "");
-        json_val_to_u64!(    "/Nonce",   msg_jsonval, nonce_u64,        0);
-        json_val_to_string!( "/Value",   msg_jsonval, value_str,      "0");
-        json_val_to_u64!(    "/GasLimit",msg_jsonval, gas_limit_u64,    0);
-        json_val_to_string!( "/GasPrice",msg_jsonval, gas_price_str,  "0");
-        json_val_to_string!( "/Method",  msg_jsonval, method_str,     "0");
-        json_val_to_string!( "/Params",  msg_jsonval, params_str,      "");
+        crate::json_val_to_u64!(    "/Version", msg_jsonval, version_u64,      0);
+        crate::json_val_to_string!( "/To",      msg_jsonval, to_str,          "");
+        crate::json_val_to_string!( "/From",    msg_jsonval, from_str,        "");
+        crate::json_val_to_u64!(    "/Nonce",   msg_jsonval, nonce_u64,        0);
+        crate::json_val_to_string!( "/Value",   msg_jsonval, value_str,      "0");
+        crate::json_val_to_u64!(    "/GasLimit",msg_jsonval, gas_limit_u64,    0);
+        crate::json_val_to_string!( "/GasPrice",msg_jsonval, gas_price_str,  "0");
+        crate::json_val_to_string!( "/Method",  msg_jsonval, method_str,     "0");
+        crate::json_val_to_string!( "/Params",  msg_jsonval, params_str,      "");
         self.msg.version   = version_u64;
         self.msg.to        = to_str;
         self.msg.from      = from_str;
@@ -131,9 +124,9 @@ impl MessageBuilder {
     }
 
     pub fn receipt_field<'a>(&'a mut self, receipt_jsonval: &jsonrpsee::common::JsonValue) -> &'a mut MessageBuilder {
-        json_val_to_i64!(    "/ExitCode", receipt_jsonval, receipt_exit_code, -1);
-        json_val_to_string!( "/Return",   receipt_jsonval, receipt_return,    "");
-        json_val_to_u64!(    "/GasUsed",  receipt_jsonval, receipt_gas_used,   0);
+        crate::json_val_to_i64!(    "/ExitCode", receipt_jsonval, receipt_exit_code, -1);
+        crate::json_val_to_string!( "/Return",   receipt_jsonval, receipt_return,    "");
+        crate::json_val_to_u64!(    "/GasUsed",  receipt_jsonval, receipt_gas_used,   0);
         self.msg.receipt = ReceiptStatus::Receipt(ReceiptFields{
             exit_code: receipt_exit_code,
             ret:       receipt_return,
@@ -365,13 +358,14 @@ impl<'a> BlockAnalyzer<'_> {
     }
 }
 
+
 ////////////////////////////////////////////////////////
 /// 
 /// Tipset
 /// 
 ////////////////////////////////////////////////////////
 
-struct Tipsets {
+pub struct Tipsets {
     i : usize,
     json_val : jsonrpsee::common::JsonValue,
 }
@@ -456,7 +450,7 @@ impl Iterator for ChainHeadBlocks {
 /// 
 ////////////////////////////////////////////////////////
 
-struct MaxTipsetHeight {
+pub struct MaxTipsetHeight {
     pub max_height : u64,
 }
 
@@ -471,140 +465,3 @@ impl MaxTipsetHeight {
         }
     }
 }
-
-fn executor(exec_params : & cli::ExecutionParameters, api : &api::ApiClient, 
-    on_starting_new_tipset:     std::option::Option<fn(height: u64, blocks: &Vec<String>)>,
-    on_starting_block:          std::option::Option<fn(blk_cid: &str)>,
-    on_found_new_message_cid:   std::option::Option<fn(msg_cid: &str)>,
-    on_found_new_message:       std::option::Option<fn(msg_cid: &str, msg: &Message)>,
-    on_finished_block:          std::option::Option<fn(blk_cid: &str)>,
-    on_finished_tipset:         std::option::Option<fn(height: u64)>) 
-{
-    log::info!("executor:  min={},max={},endpoint='{}'",exec_params.min,exec_params.max,exec_params.endpoint);
-
-    //
-    // Construct block analyzer
-    //
-    let mut block_analyzer = BlockAnalyzer::new(&api);
-
-    //
-    // Iterate over the range of heights
-    //
-    let mut curr_tipset_height = MaxTipsetHeight::new(&api).max_height;
-    log::debug!("current largest tipset height: {})",curr_tipset_height);
-    use std::cmp::{min,max};
-    let mut i : u64 = max(exec_params.min,0 as u64);
-    log::info!("Iterating from height {} to {}",i,min(exec_params.max,curr_tipset_height));
-    loop {
-        let ts_strings : Vec<String> = Tipsets::new(&api,i).collect();
-        if let Some(f) = on_starting_new_tipset {
-            f(i,&ts_strings);
-        }
-        for blk_cid in ts_strings {
-            if let Some(f) = on_starting_block {
-                f(&blk_cid);
-            }
-
-            log::info!("Height {} : blk_cid {}...",i,blk_cid);
-
-            // Iterate complete messages referenced in this block, and cids of new messages first
-            // appearing in this block.
-            if on_found_new_message.is_some() || on_found_new_message_cid.is_some()
-            {
-                block_analyzer.iterate_over_all_messages_in_block(&blk_cid, on_found_new_message, 
-                    on_found_new_message_cid);
-            }
-
-            if let Some(f) = on_finished_block {
-                f(&blk_cid);
-            }
-        }
-
-        if let Some(f) = on_finished_tipset {
-            f(i);
-        }
-
-        //
-        // Loop control
-        //
-        i += 1;
-        if i > min(exec_params.max,curr_tipset_height) {
-            curr_tipset_height = MaxTipsetHeight::new(&api).max_height;
-            if i > min(exec_params.max,curr_tipset_height) {
-                break
-            }
-        }
-    }
-}
-
-fn main() {
-    env_logger::Builder::from_default_env().format_timestamp(None).init();
-
-    // Get CLI and config.toml args
-    let exec_params = cli::parse_configuration();
-
-    // Set up API object and test connection
-    let api = api::ApiClient::new(&exec_params.endpoint);
-    assert!(api.check_endpoint_connection());
-    
-    // Define the callbacks
-    let on_start_new_tipset = |_height:u64,_blocks:&Vec<String>| {
-        // add a row to tipset_processing_status table (cols: tipset_height, reported_starting, reported_ending)
-    };
-    let on_complete_tipset = |_height:u64| {
-        // update tipset_processing_status.reported_ending
-    };
-
-    let on_start_new_block = |_blkcid:&str| {
-        // add a row to block_cids (cols:  id, block_cid)
-        // add a row to blocks_processing (cols:  block_cid_id, reported_starting, reported_ending)
-    };
-    let on_block_complete = |_blkcid:&str| {
-        // update blocks_processing.reported_ending
-    };
-
-    let on_found_new_message_cid = |_msg_cid:&str| {
-        // No-op
-        log::info!("cid = '{}'",_msg_cid);
-    };
-
-    let on_found_new_message = |_msg_cid:&str, _msg:&Message| {
-        // store it in messages (cols correspond to message, but indexes on all columns)
-        log::info!("cid = '{}'\n\nmsg={:?}",_msg_cid,_msg);
-    };
-
-    // Run executor with our callbacks
-    executor(&exec_params, &api, 
-        Some(on_start_new_tipset),
-        Some(on_start_new_block),
-        Some(on_found_new_message_cid),
-        Some(on_found_new_message),
-        Some(on_block_complete),
-        Some(on_complete_tipset)
-    );
-}
-
-//1. Move all block analyzer stuff to another file
-//3. Write the callback logic I want for demo (both simple and useful)
-//4. Put the simple demo in the README.md as an example of what you can do
-//      --> Simple demo could be to accumulate how much FC has been spend on storage vs retrieval
-//      --> more complex may require postgres integration
-//5. Add compile/run instructions in README.md
-
-
-    ////////////////////// Ideas for improvement //////////////////////////////////////////////
-    //
-    // 1.  Turn 'api' into a crate
-    // 2.  For any block_cid that we fail on, note it in a failed blocks list and just continue 
-    //     on with the next block.
-    // 3.  On shutdown, persist the list of msg_id=>msg_type_flag without receipts yet, so we
-    //     can resume with it next time.  And:
-    //    TODO:
-    //    - Indices are constructed to allow fast lookup of complete Message structs 
-    //        - e.g., lookup of the Payload CID for a Piece CID and vice-versa (known message type)
-    //        - e.g., lookup whether a payment channel exists for a pair of addresses
-    // 4.  Support a mode where we are running backward in time from current max height, to curr max -1, 
-    //     curr max -2, etc.  It means that instead of automatically putting current blocks into 
-    //     msg_id=>msg_type_flag map, we need to check whether we already have that msg_id with a receipt
-    //     and if so just need to fill in the Message struct's msg_type_flag field.
-
