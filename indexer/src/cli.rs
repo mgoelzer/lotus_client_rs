@@ -3,7 +3,7 @@ use structopt::StructOpt;
 use structopt_toml::StructOptToml;
 use std::path::PathBuf;
 
-const CONFIG_DIR : &str      = ".indexer";     // Under $HOME
+pub const CONFIG_DIR : &str      = ".indexer";     // Under $HOME
 const CONFIG_FILENAME : &str = "config.toml";
 
 #[derive(Debug, Deserialize, StructOpt, StructOptToml)]
