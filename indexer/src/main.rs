@@ -4,116 +4,12 @@ use lotus_client_rs::cbor::deal_proposal::decode_storage_deal;
 use env_logger;
 use log;
 mod cli;
+mod db;
 
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Error, Response, Server};
 use hyper::http::StatusCode;
 use std::sync::{Arc, Mutex};
-
-use sqlite3;
-
-use std::convert::TryFrom;
-
-fn get_db_connection() -> sqlite3::Connection {
-    let mut db_pathbuf : std::path::PathBuf = match dirs::home_dir() {
-        Some(path) => { path },
-        None       => { std::path::PathBuf::from(".") },
-    };
-    db_pathbuf.push(cli::CONFIG_DIR);
-    db_pathbuf.push("db.sqlite3");
-
-    let db_path = db_pathbuf.as_path(); 
-    let connection = sqlite3::open(db_path).unwrap();
-
-    if ! db_path.exists() {
-        create_tables(&connection);
-    }
-    
-    connection
-}
-
-fn create_tables(connection: &sqlite3::Connection) {
-    connection
-        .execute(
-            "
-            DROP TABLE IF EXISTS piece_payload;
-            CREATE TABLE piece_payload (msg_cid TEXT, piece_cid TEXT, payload_cid TEXT);
-            DROP TABLE IF EXISTS heights;
-            CREATE TABLE heights (height INTEGER, completed INTEGER DEFAULT '0' NOT NULL);
-            ",
-        )
-        .unwrap();
-}
-
-fn insert_piece_and_payload_cids(connection: &sqlite3::Connection, msg_cid: &str, piece_cid:&str, payload_cid:&str) {
-    // Insert
-    connection
-        .execute(format!(
-            "INSERT INTO piece_payload (msg_cid, piece_cid, payload_cid) VALUES ('{}', '{}', '{}')",
-            msg_cid,
-            piece_cid,
-            payload_cid
-        ))
-        .unwrap();
-}
-
-fn mark_height(connection: &sqlite3::Connection, height: u64, is_completed: bool) {
-    let int_completed = match is_completed {
-        true => { 1 },
-        false => { 0 },
-    };
-    let height_int64 : i64 = 0_i64 + i64::try_from(height).unwrap();
-
-    // TODO: needs to mark not just whether the height was started and completed, but how to 
-    // roll back in case program starts up in a state where a certain height is started but
-    // not completed
-
-    connection
-        .execute(format!(
-            "INSERT INTO heights (height, completed) VALUES ('{}', '{}')",
-            height_int64,
-            int_completed
-        ))
-        .unwrap();
-}
-
-pub struct MsgPiecePayload {
-    pub msg_cid: String,
-    pub piece_cid: String,
-    pub payload_cid: String,
-}
-
-impl MsgPiecePayload {
-    pub fn new(msg_cid: &str, piece_cid: &str, payload_cid: &str) -> MsgPiecePayload {
-        MsgPiecePayload{
-            msg_cid: msg_cid.to_owned(),
-            piece_cid: piece_cid.to_owned(),
-            payload_cid: payload_cid.to_owned(),
-        }
-    }
-}
-
-fn lookup_cid(connection: &sqlite3::Connection, cid: &str) -> Option<MsgPiecePayload> {
-    // Cursor select
-    let mut cursor = connection
-            .prepare("SELECT msg_cid, piece_cid, payload_cid FROM piece_payload WHERE piece_cid = ?1 OR payload_cid = ?1 LIMIT 1")
-            .unwrap()
-            .cursor();
-
-    cursor.bind(&[  sqlite3::Value::String(cid.to_string())  ]).unwrap();
-    
-    if let Some(row) = cursor.next().unwrap() {
-        println!("msg_cid = {}, piece_cid = {}, payload_cid = {}", 
-                row[0].as_string().unwrap(), 
-                row[1].as_string().unwrap(), 
-                row[2].as_string().unwrap() );
-        Some(MsgPiecePayload::new(row[0].as_string().unwrap(), 
-                                  row[1].as_string().unwrap(),
-                                  row[2].as_string().unwrap()))
-    } else {
-        None
-    }
-}
 
 fn main() {
     env_logger::Builder::from_default_env().format_timestamp(None).init();
@@ -126,17 +22,17 @@ fn main() {
     assert!(api.check_endpoint_connection());
     
     // Define the callbacks
-    let on_start_new_tipset = |_height:u64,_blocks:&Vec<String>| {
+    let on_start_new_tipset = |height:u64,_blocks:&Vec<String>| {
         // add a row to tipset_processing_status table (cols: tipset_height, reported_starting, reported_ending)
-        println!("Tipset: {}", _height);
-        let connection = get_db_connection();
-        mark_height(&connection, _height,false);
+        println!("Tipset: {}", height);
+        let connection = db::get_db_connection();
+        db::mark_height(&connection, height,false);
     };
-    let on_complete_tipset = |_height:u64| {
+    let on_complete_tipset = |height:u64| {
         // update tipset_processing_status.reported_ending
-        println!("Completed tipset: {}", _height);
-        let connection = get_db_connection();
-        mark_height(&connection, _height,true);
+        println!("Completed tipset: {}", height);
+        let connection = db::get_db_connection();
+        db::mark_height(&connection, height,true);
     };
 
     let on_start_new_block = |_blkcid:&str| {
@@ -153,6 +49,7 @@ fn main() {
         log::info!("cid = '{}'",_msg_cid);
     };
 
+    // Search for deal proposals (with Payload CID <-> Piece CID mappings)
     let on_found_new_message = |msg_cid:&str, msg:&Message| {
         // store it in messages (cols correspond to message, but indexes on all columns)
         log::info!("cid = '{}'\n\nmsg={:?}",msg_cid,msg);
@@ -163,9 +60,10 @@ fn main() {
             if let Some(decoded_params) = decode_storage_deal(&msg.params) {
                 println!("    decoded params = '{:?}'\n",decoded_params);
                 println!("        piece_cid as str = '{}'\n",decoded_params.get_piece_cid_as_str());
-
-                let conn = get_db_connection();
-                insert_piece_and_payload_cids(&conn,msg_cid,&decoded_params.get_piece_cid_as_str(),&decoded_params.label);
+    
+                // Persist tuple to database
+                let conn = db::get_db_connection();
+                db::insert_piece_and_payload_cids(&conn,msg_cid,&decoded_params.get_piece_cid_as_str(),&decoded_params.label);
             } else {
                 log::error!("on_found_new_message:  could not decode params for {}",msg_cid);
             }
@@ -192,7 +90,7 @@ pub async fn await_server() {
     let addr = ([0, 0, 0, 0], 4500).into();
 
     // Shared threadsafe db connection
-    let lock_conn = Arc::new(Mutex::new(get_db_connection()));
+    let lock_conn = Arc::new(Mutex::new(db::get_db_connection()));
 
     // Closure `make_service_fn` is run for each connection,
     // creating a 'service' to handle requests for that connection.
@@ -214,14 +112,14 @@ pub async fn await_server() {
                     "/lookup-cid" => {
                         if let Some(uri_query_str) = req.uri().query() {
                             let cid_to_lookup = uri_query_str;
-                            let msg_piece_payload : Option<MsgPiecePayload>;
+                            let msg_piece_payload : Option<db::MsgPiecePayload>;
 
                             {
                                 // Get the db connection
                                 let connection = &*lock_conn.lock().unwrap();
             
                                 // Try to lookup cit
-                                msg_piece_payload = lookup_cid(connection, cid_to_lookup);
+                                msg_piece_payload = db::lookup_cid(connection, cid_to_lookup);
                             }
 
                             body_string = match msg_piece_payload {
