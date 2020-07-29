@@ -20,23 +20,14 @@ fn main() {
     let on_start_new_tipset = |height:u64,_blocks:&Vec<String>| {
         // add a row to tipset_processing_status table (cols: tipset_height, reported_starting, reported_ending)
         println!("Tipset: {}", height);
-        let connection = db::get_db_connection();
-        db::mark_height(&connection, height,false);
     };
     let on_complete_tipset = |height:u64| {
         // update tipset_processing_status.reported_ending
         println!("Completed tipset: {}", height);
-        let connection = db::get_db_connection();
-        db::mark_height(&connection, height,true);
     };
 
-    let on_start_new_block = |_blkcid:&str| {
-        // add a row to block_cids (cols:  id, block_cid)
-        // add a row to blocks_processing (cols:  block_cid_id, reported_starting, reported_ending)
-        println!("  Block: {}", _blkcid);
-    };
-    let on_block_complete = |_blkcid:&str| {
-        // update blocks_processing.reported_ending
+    let on_start_new_block = |blkcid:&str| {
+        println!("  Block: {}", blkcid);
     };
 
     let on_found_new_message_cid = |_msg_cid:&str| {
@@ -46,7 +37,6 @@ fn main() {
 
     // Search for deal proposals (with Payload CID <-> Piece CID mappings)
     let on_found_new_message = |msg_cid:&str, msg:&Message| {
-        // store it in messages (cols correspond to message, but indexes on all columns)
         log::info!("cid = '{}'\n\nmsg={:?}",msg_cid,msg);
 
         if msg.method=="4" && msg.to=="t05" {
@@ -71,7 +61,7 @@ fn main() {
         Some(on_start_new_block),
         Some(on_found_new_message_cid),
         Some(on_found_new_message),
-        Some(on_block_complete),
+        None,
         Some(on_complete_tipset)
     );
 }
