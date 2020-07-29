@@ -6,11 +6,6 @@ use log;
 mod cli;
 mod db;
 
-use hyper::service::{make_service_fn, service_fn};
-use hyper::{Body, Error, Response, Server};
-use hyper::http::StatusCode;
-use std::sync::{Arc, Mutex};
-
 fn main() {
     env_logger::Builder::from_default_env().format_timestamp(None).init();
 
@@ -79,84 +74,4 @@ fn main() {
         Some(on_block_complete),
         Some(on_complete_tipset)
     );
-
-    // TODO - this should start before we start looping over iterate_over_blockchain()
-    // Start the HTTP interface on a background thread
-    await_server();
 }
-
-#[tokio::main]
-pub async fn await_server() {
-    let addr = ([0, 0, 0, 0], 4500).into();
-
-    // Shared threadsafe db connection
-    let lock_conn = Arc::new(Mutex::new(db::get_db_connection()));
-
-    // Closure `make_service_fn` is run for each connection,
-    // creating a 'service' to handle requests for that connection.
-    let make_service = make_service_fn(move |_| {
-        // While the state was moved into the make_service closure,
-        // we need to clone it here because this closure is called
-        // once for every connection.
-        let lock_conn = lock_conn.clone();
-
-        async move {
-            // This is the `Service` that will handle the connection.
-            // `service_fn` is a helper to convert a function that
-            // returns a Response into a `Service`.
-            Ok::<_, Error>(service_fn(move |req| {
-                let body_string;
-                let status_code;
-
-                match req.uri().path() {
-                    "/lookup-cid" => {
-                        if let Some(uri_query_str) = req.uri().query() {
-                            let cid_to_lookup = uri_query_str;
-                            let msg_piece_payload : Option<db::MsgPiecePayload>;
-
-                            {
-                                // Get the db connection
-                                let connection = &*lock_conn.lock().unwrap();
-            
-                                // Try to lookup cit
-                                msg_piece_payload = db::lookup_cid(connection, cid_to_lookup);
-                            }
-
-                            body_string = match msg_piece_payload {
-                                Some(mpp) => { 
-                                    status_code = StatusCode::OK;
-                                    format!("{{\"status\": \"success\", \"lookup_cid\": \"{}\", \"msg_cid\": \"{}\", \"piece_cid\": \"{}\", \"payload_cid\": \"{}\"}}", 
-                                        cid_to_lookup, mpp.msg_cid, mpp.piece_cid, mpp.payload_cid)
-                                },
-                                None => {
-                                    status_code = StatusCode::OK;
-                                    format!("{{\"status\": \"failed\", \"message\": \"couldn't find CID '{}'\"}}", cid_to_lookup)
-                                }
-                            };
-                        } else {
-                            status_code = StatusCode::OK;
-                            body_string = "{\"status\": \"failed\", \"message\": \"couldn't parse url query string\"}".to_owned();
-                        }
-                    },
-                    _ => {
-                        status_code = StatusCode::NOT_FOUND;
-                        body_string = "".to_owned();
-                    },
-                }
-
-                let mut response = Response::new(Body::from(body_string));
-                *response.status_mut() = status_code;
-                async move { Ok::<_, Error>(response) }
-            }))
-        }
-    });
-
-    let server = Server::bind(&addr).serve(make_service);
-
-    println!("Listening on http://{}", addr);
-
-    if let Err(e) = server.await {
-        eprintln!("server error: {}", e);
-    }
-}
-
