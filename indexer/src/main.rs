@@ -1,4 +1,6 @@
 use lotus_client_rs::blockanalyzer::{Message,iterate_over_blockchain};
+use lotus_client_rs::cbor::deal_proposal::decode_storage_deal;
+
 use env_logger;
 use log;
 mod cli;
@@ -123,8 +125,6 @@ fn main() {
     let api = lotus_client_rs::api::ApiClient::new(&exec_params.endpoint);
     assert!(api.check_endpoint_connection());
     
-    ///////////////////////////////////////////////////
-
     // Define the callbacks
     let on_start_new_tipset = |_height:u64,_blocks:&Vec<String>| {
         // add a row to tipset_processing_status table (cols: tipset_height, reported_starting, reported_ending)
@@ -153,15 +153,22 @@ fn main() {
         log::info!("cid = '{}'",_msg_cid);
     };
 
-    let on_found_new_message = |_msg_cid:&str, _msg:&Message| {
+    let on_found_new_message = |msg_cid:&str, msg:&Message| {
         // store it in messages (cols correspond to message, but indexes on all columns)
-        log::info!("cid = '{}'\n\nmsg={:?}",_msg_cid,_msg);
+        log::info!("cid = '{}'\n\nmsg={:?}",msg_cid,msg);
 
-        if _msg.method=="4" && (_msg.from=="t3rbcytzb6t3vzeigkfi6oxg22iwpaeekaf7gbstovykkmskg2nglthnzpg777whuevo4loqu3vmthoxsvdkbq" || _msg.from=="t3schhtef3m5yshlop3ffwjk5lauaqryx2e67xayngbj5stvha6m6i5noqvtiswykqg5pel4wt5j6zlrbblxbq") {
-            println!("    cid = '{}'\n    msg={:?}\n",_msg_cid,_msg);
+        if msg.method=="4" && msg.to=="t05" {
+            println!("Found a dealproposal:");
+            println!("    cid = '{}'\n    msg={:?}\n",msg_cid,msg);
+            if let Some(decoded_params) = decode_storage_deal(&msg.params) {
+                println!("    decoded params = '{:?}'\n",decoded_params);
+                println!("        piece_cid as str = '{}'\n",decoded_params.get_piece_cid_as_str());
 
-            let conn = get_db_connection();
-            insert_piece_and_payload_cids(&conn,_msg_cid,"88888888888888888888dasfadsfdsfdsfa","8888888dasfdsfadsfdksfladskfjaksdlflasdfaads");
+                let conn = get_db_connection();
+                insert_piece_and_payload_cids(&conn,msg_cid,&decoded_params.get_piece_cid_as_str(),&decoded_params.label);
+            } else {
+                log::error!("on_found_new_message:  could not decode params for {}",msg_cid);
+            }
         }
     };
 
@@ -175,21 +182,16 @@ fn main() {
         Some(on_complete_tipset)
     );
 
-
-
-    //////////////////////////////////////////////////
-    
+    // TODO - this should start before we start looping over iterate_over_blockchain()
+    // Start the HTTP interface on a background thread
     await_server();
 }
-
-
 
 #[tokio::main]
 pub async fn await_server() {
     let addr = ([0, 0, 0, 0], 4500).into();
 
-    // For the most basic of state, we just share a counter, that increments
-    // with each request, and we send its value back in the response.
+    // Shared threadsafe db connection
     let lock_conn = Arc::new(Mutex::new(get_db_connection()));
 
     // Closure `make_service_fn` is run for each connection,
@@ -207,6 +209,7 @@ pub async fn await_server() {
             Ok::<_, Error>(service_fn(move |req| {
                 let body_string;
                 let status_code;
+
                 match req.uri().path() {
                     "/lookup-cid" => {
                         if let Some(uri_query_str) = req.uri().query() {
