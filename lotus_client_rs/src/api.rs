@@ -10,7 +10,6 @@ use log;
 //
 //////////////////////////////////////////////////////////////////////////////////////
 
-// TODO:  error handling instead of 3X unwraps...
 macro_rules! make_api_function {
     ($selfparam:ident, $method_call_name:literal, $auth_token_value:expr, $expr_evals_to_params:expr) => {
         async_std::task::block_on(async move {
@@ -27,21 +26,25 @@ macro_rules! make_api_function {
                                             ret
                                         },
                                         Err(e) => {
+                                            log::error!("make_api_function!: fut.await result was Ok() but failed to parse to json:  error: {}",e);
                                             jsonrpsee::common::JsonValue::Null
                                         }
                                     }
                                 },
                                 Err(e) => {
+                                    log::error!("make_api_function!: fut.await result was error type: {}",e);
                                     jsonrpsee::common::JsonValue::Null
                                 }
                             }
                         },
                         None => {
+                            log::error!("make_api_function!: raw_client.request_by_id(request_id='{:?}') was None",request_id);
                             jsonrpsee::common::JsonValue::Null
                         }
                     }
                 },
                 Err(e) => {
+                    log::error!("make_api_function!: 'raw_client.start_request($method_call_name, $expr_evals_to_params).await': error: {}",e);
                     jsonrpsee::common::JsonValue::Null
                 }
             }
