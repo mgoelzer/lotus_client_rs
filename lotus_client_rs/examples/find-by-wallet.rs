@@ -8,13 +8,11 @@ fn main() {
     assert!(api.check_endpoint_connection());
     
     let on_height = |height:u64,_blocks:&Vec<String>| {
-        if height % 10 == 0 {
-            println!("(at height {}-{})",height,height+9);
-        }
+        println!("Tipset height: {}",height);
     };
     let on_msg = |msg_cid:&str, msg:&Message| {
-        let find_addr = "t3wzcpwznw6dvl6x3beekspluvhdwh26h3tvmw5y2fychse7pr6xlsfmxuhsv6ki7r3pm6s7gxc65h52lgqfsa";
-        if msg.from==find_addr || msg.to==find_addr {
+        let find_prefix = "t3";
+        if msg.from.starts_with(&find_prefix) || msg.to.starts_with(&find_prefix) {
             println!("Message {}:\n  From {}\n  To {}\n",msg_cid,msg.from,msg.to);
         }
     };

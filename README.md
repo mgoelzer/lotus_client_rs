@@ -94,7 +94,7 @@ Receipt: Receipt(ReceiptFields { exit_code: 0, ret: "\"\"", gas_used: 2315923 })
 
 (See [examples/print-everything.rs](examples/print-everything.rs))
 
-This example searches the chain for all messages to or from the wallet address `t3wzcpwznw6dvl6x3beekspluvhdwh26h3tvmw5y2fychse7pr6xlsfmxuhsv6ki7r3pm6s7gxc65h52lgqfsa`:
+This example searches the chain for all messages to or from a wallet starting with prefix `t3`: `t3wzcpwznw6dvl6x3beekspluvhdwh26h3tvmw5y2fychse7pr6xlsfmxuhsv6ki7r3pm6s7gxc65h52lgqfsa`:
 
 ```
 use lotus_client_rs::blockanalyzer::{Message,iterate_over_blockchain};
@@ -104,13 +104,11 @@ fn main() {
     assert!(api.check_endpoint_connection());
     
     let on_height = |height:u64,_blocks:&Vec<String>| {
-        if height % 10 == 0 {
-            println!("(at height {}-{})",height,height+9);
-        }
+        println!("Tipset height: {}",height);
     };
     let on_msg = |msg_cid:&str, msg:&Message| {
-        let find_addr = "t3wzcpwznw6dvl6x3beekspluvhdwh26h3tvmw5y2fychse7pr6xlsfmxuhsv6ki7r3pm6s7gxc65h52lgqfsa";
-        if msg.from==find_addr || msg.to==find_addr {
+        let find_prefix = "t3";
+        if msg.from.starts_with(&find_prefix) || msg.to.starts_with(&find_prefix) {
             println!("Message {}:\n  From {}\n  To {}\n",msg_cid,msg.from,msg.to);
         }
     };
