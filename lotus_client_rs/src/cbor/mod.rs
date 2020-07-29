@@ -1,5 +1,4 @@
 pub mod deal_proposal;
-pub mod payment_channel_constructor;
 
 #[cfg(test)]
 mod tests {
