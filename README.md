@@ -136,9 +136,9 @@ Message bafy2bzacecveqyivxeo33auajdh5w3kgyhc2qfahzo5ayx53aqce4spmz6lum:
 
 (See [examples/find-by-wallet.rs](examples/find-by-wallet.rs))
 
-## Crate 'indexer'
+## Crate 'cid_oracle'
 
-The crate [`indexer`](indexer/) in this repo is another example that uses `lotus_client_rs`.  `indexer` mines the chain for specific types of messages, caches them, and serves them on an HTTP API.
+The crate [`cid_oracle`](cid_oracle/) in this repo is another example that uses `lotus_client_rs`.  `cid_oracle` mines the chain for specific types of messages, caches them, and serves them on an HTTP API.
 
 ## Configuring a Lotus Machine
 
@@ -174,8 +174,8 @@ cargo build --examples
 ./target/debug/examples/print-everything
 ./target/debug/examples/find-by-wallet
 
-# Running indexer
-cargo run -p indexer -- --endpoint="http://lotus1:1234/rpc/v0"
+# Running cid_oracle
+cargo run -p cid_oracle -- --endpoint="http://lotus1:1234/rpc/v0"
 
 # To use in your own project, make your project directory a
 # sibling of filecoin-chain-rs; then put in your Cargo.toml:

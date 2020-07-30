@@ -1,5 +1,5 @@
 #
-# config file - rename to $HOME/.indexer/config.toml
+# config file - rename to $HOME/.cid_oracle/config.toml
 #
 
 # (values here are defaults, overrideable by cli args)

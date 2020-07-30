@@ -3,12 +3,12 @@ use structopt::StructOpt;
 use structopt_toml::StructOptToml;
 use std::path::PathBuf;
 
-pub const CONFIG_DIR : &str      = ".indexer";     // Under $HOME
-const CONFIG_FILENAME : &str = "config.toml";
+pub const CONFIG_DIR : &str  = ".cid-oracle";  // Under $HOME
+const CONFIG_FILENAME : &str = "config.toml";  // Optional config file
 
 #[derive(Debug, Deserialize, StructOpt, StructOptToml)]
 #[serde(default)]
-#[structopt(name = "indexer")]
+#[structopt(name = "cid_oracle")]
 struct Opt {
     /// url of lotus api
     #[structopt(default_value = "http://127.0.0.1:1234/rpc/v0", long, short="e")]
@@ -24,7 +24,7 @@ struct Opt {
 }
 
 /// Returns the path to the config file on this systme, which is 
-/// the user's home directory path + ".indexer/config.toml"
+/// the user's home directory path + ".cid_oracle/config.toml"
 /// 
 /// # Arguments
 ///
@@ -110,10 +110,10 @@ impl ExecutionParametersBuilder {
 /// Parses configuration to return the execution parameters the
 /// program will use.  Configuration comes from hard-coded 
 /// defaults in the program, which is overridable by 
-/// $HOME/.indexer/config.toml (if it exists), which is overridable
+/// $HOME/.cid-oracle/config.toml (if it exists), which is overridable
 /// by command line arguments.
 /// 
-/// These are the arguments we're interested in:
+/// These are the possible arguments:
 /// 
 ///     --min=NNN                 # where NNN is a positive number
 ///     --max=NNN                 # where NNN is a postive number

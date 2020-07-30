@@ -2,5 +2,5 @@
 
 members = [
 	"lotus_client_rs",
-	"indexer",
+	"cid_oracle",
 ]
