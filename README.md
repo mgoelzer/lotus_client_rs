@@ -202,3 +202,7 @@ For the above examples to actually work as advertised, you'll need to repalce `h
 ## Contributing
 
 Contributions are welcome!  Start by checking the [issues](/issues), or propose a better way to implement this crate.
+
+## License
+
+Dual-licensed under [MIT](https://github.com/filecoin-project/lotus/blob/master/LICENSE-MIT) + [Apache 2.0](https://github.com/filecoin-project/lotus/blob/master/LICENSE-APACHE)
