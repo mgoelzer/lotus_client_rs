@@ -16,11 +16,11 @@ fn main() {
         println!("  Block: {}",blkcid);
     };
     let on_found_new_message = |msg_cid:&str, msg:&Message| {
-        println!("\n--- message {} ---\n{}--------------------------------------------------------------------------------",msg_cid,msg);
+        println!("\n--- message {} ---\n{}{}", msg_cid, msg, "-".to_string().repeat(80));
     };
 
     // Run iterate_over_blockchain with our callbacks on the first few blocks
-    iterate_over_blockchain(0, 3, &api, 
+    iterate_over_blockchain(0, 5, &api, 
         Some(on_start_new_tipset),
         Some(on_start_new_block),
         None,
